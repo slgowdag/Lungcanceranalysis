@@ -1,0 +1,134 @@
+---
+title: "Social Media"
+author: "hg420@scarletmail.rutgers.edu"
+date: "2024-03-30"
+output: html_document
+---
+
+
+
+
+```{r}
+
+
+library(stats)
+library(readr)
+library(stats)
+
+#PCA
+data_cleaned <- read.csv('C:/Users/user/Desktop/Spring2024/MVA/Social media/social_media_cleaned_final.csv')
+data_numeric <- data_cleaned[, -1]
+
+#Normalize the data (Scaling)
+data_scaled <- scale(data_numeric)
+
+#PCA
+pca_result <- prcomp(data_scaled, scale. = TRUE)
+
+#Summary of PCA
+summary(pca_result)
+
+#Percentage of variance accounted for by each principal component
+prop_var <- pca_result$sdev^2 / sum(pca_result$sdev^2)
+prop_var
+
+#Plot of the explained variance ratio
+plot(prop_var, type = 'b', xlab = "Principal Component", ylab = "Proportion of Variance Explained", main = "Scree Plot")
+
+#Biplot
+biplot(pca_result)
+
+peace <- which(data_cleaned$character == "peace")
+
+#Plot PCA outcomes
+plot(pca_result$x[, 1], pca_result$x[, 2], xlab = "PC1", ylab = "PC2", main = "PCA Analysis")
+
+#Noting 'Peace' position using a color or symbol.
+points(pca_result$x[peace, 1], pca_result$x[peace, 2], col = "green", pch = 19)
+
+#Adding legend
+legend("topright", legend = c("Others", "peace"), col = c("blue", "green"), pch = c(1, 19), title = "Groups")
+
+#CLUSTER
+
+#Number of clusters
+num_clusters <- 4
+
+#Perform k-means clustering on the scores obtained from principal components.
+kmeans_clusters <- kmeans(pca_result$x[, 1:2], centers = num_clusters)
+
+#Add cluster labels to the original dataset
+data_cleaned$cluster <- as.factor(kmeans_clusters$cluster)
+
+#Plotting the PCA results with cluster membership
+plot(pca_result$x[, 1:2], col = data_cleaned$cluster, pch = 19, xlab = "PC1", ylab = "PC2", main = "Cluster Analysis PCA")
+
+#Add cluster centers into the visualization.
+points(kmeans_clusters$centers[, 1:2], col = 1:num_clusters, pch = 8, cex = 2)
+
+#Adding legend
+legend("topright", legend = unique(data_cleaned$cluster), col = 1:num_clusters, pch = 19, title = "Cluster")
+
+peace_cluster <- kmeans_clusters$cluster[data_cleaned$character == "peace"]
+
+#Plot PCA results with cluster membership
+plot(pca_result$x[, 1], pca_result$x[, 2], col = ifelse(data_cleaned$cluster == peace_cluster, "green", "red"), pch = 19, xlab = "PC1", ylab = "PC2", main = "Cluster Analysis")
+
+#Adding cluster centers
+points(kmeans_clusters$centers[, 1], kmeans_clusters$centers[, 2], col = 1:num_clusters, pch = 8, cex = 2)
+
+#Adding legend
+legend("topright", legend = c("Others", "peace"), col = c("red", "green"), pch = 19)
+
+#Adding legend for cluster centers
+legend("bottomright", legend = paste("Cluster", 1:num_clusters), col = 1:num_clusters, pch = 8, cex = 1, title = "Cluster Centers")
+
+#FACTOR
+
+#Performin Factor Analysis
+factor_result <- factanal(data_scaled, factors = 3)
+
+#Displaying summary of Factor Analysis
+print(factor_result)
+
+#Extracting factor loadings
+factor_loadings <- factor_result$loadings
+
+#Plotting Factor Loadings
+barplot(abs(factor_loadings), beside = TRUE, col = "darkgreen", main = "Factor Loadings", xlab = "Variables", ylab = "Absolute Factor Loadings")
+legend("topright", legend = paste("Factor", 1:3), fill = "darkgreen")
+
+#Add cluster labels to the original dataset based on k-means clustering
+data_cleaned$cluster <- as.factor(kmeans_clusters$cluster)
+
+#Add factor scores to the original dataset
+data_cleaned$factor1 <- factor_result$scores[,1]
+data_cleaned$factor2 <- factor_result$scores[,2]
+data_cleaned$factor3 <- factor_result$scores[,3]
+
+#Plotting the PCA results with factor scores and cluster membership
+plot(pca_result$x[, 1:2], col = data_cleaned$cluster, pch = 19, xlab = "PC1", ylab = "PC2", main = "PCA - Factor Analysis and Cluster Analysis")
+points(factor_result$scores[, 1:2], col = "skyblue", pch = 4)
+legend("topright", legend = c("Cluster", "Factor"), col = c(1, "skyblue"), pch = c(19, 4), title = "Groups")
+
+#Adding legend for cluster
+legend("bottomright", legend = unique(data_cleaned$cluster), col = 1:num_clusters, pch = 19, title = "Cluster")
+
+
+#Answers:
+#Summarize what each of these models is telling you about yourself and the class? 
+#Ans: PCA simplified the complex social media data while retaining the significant differences. It identified significant patterns that reflect the largest changes in data. The main pattern explained 26.1% of these differences, while the next explained 19.1%, demonstrating that class members utilize social media in a variety of ways. This suggests that PCA identified significant trends in how the class uses various social media sites.
+
+#Cluster Analysis was done on the PCA scores, resulting in the data being classified into four separate clusters. This investigation sought to categorize class members based on similarities in their social media usage patterns. The depiction of these clusters demonstrated how class members are segmented depending on their primary component scores, revealing varied groups within the class defined by their distinct social media behavior.
+
+#Factor analysis was used to find underlying variables that explain the pattern of correlations identified in social media data. Three indicators were identified, indicating how different social media networks such as Instagram, LinkedIn, and Snapchat, load on these characteristics. This demonstrates various levels of social media activity among class participants, including professional networking, multimedia sharing, and messaging.
+
+#Provide a takeaway from the analysis?
+#The combined findings from PCA, Cluster Analysis, and Factor Analysis demonstrate the multidimensional character of social media involvement among class members. There are considerable differences in how people utilize different platforms, which can be classified into diverse patterns of behavior and linked to underlying variables. This study not only aids in understanding the common trends in social media usage, but also in identifying certain groups within the class for targeted studies or interventions based on social media activity.
+
+
+
+
+
+```
+

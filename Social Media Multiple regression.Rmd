@@ -1,0 +1,124 @@
+---
+title: "Social Media Multiple Regression"
+author: "hg420@scarletmail.rutgers.edu"
+date: "2024-04-16"
+output: html_document
+---
+
+
+```{r}
+
+library(factoextra)
+library(FactoMineR)
+library(psych)
+library(readr)
+library(GGally)
+
+social_media <- read_csv("C:/Users/user/Desktop/Spring2024/MVA/Social media/social_media_cleaned_new.csv")
+
+str(social_media)
+
+#Ans) This summary describes the dataset of 21 people detailing their social media interactions and various weekly activities like mood, productivity, and sleep habits. The dataset includes:
+#Social Media Usage: Records time spent on various platforms such as Instagram, LinkedIn, Snapchat, and Twitter.
+#Other Activities: Includes data on job interviews, networking through coffee chats, and learning activities quantified by items created.
+#Mood and Productivity: Contains a variable indicating if individuals felt productive, potentially linked to social media use and other factors.
+#Sleep Patterns: Features data on sleep issues like difficulty falling asleep and tiredness upon waking, possibly affected by daily activities and social media usage.
+
+social_media$`Trouble falling asleep_numeric` <- ifelse(social_media$`Trouble falling asleep` == "Yes", 1, 0)
+str(social_media)
+
+#Ans) This step creates a new numeric column, 'Trouble falling asleep_numeric', where 'Yes' is encoded as 1 and 'No' as 0, converting it to a numeric data type for analysis.
+
+fit <- lm(`Trouble falling asleep_numeric` ~ Instagram + LinkedIn + SnapChat + Twitter + `Whatsapp/Wechat` + youtube + OTT + Reddit, data = social_media)
+summary(fit)
+
+#Ans) The model summary provides key insights:
+#Residuals: Describes the variation in the dependent variable not explained by the model.
+#Coefficients: Provides the estimated impact of each social media platform on sleep trouble, showing the change in probability of sleep trouble per unit increase in usage time.
+#Statistical Significance: Each predictor's significance is indicated by its p-value, with lower values suggesting stronger evidence against the null hypothesis of no effect.
+#Model Fit: Indicated by R-squared values, showing the proportion of variance explained by the model, and the F-statistic for testing the model's overall significance.
+
+fit2 <- lm(`Trouble falling asleep_numeric` ~ Instagram + LinkedIn + SnapChat + `Whatsapp/Wechat` + youtube + OTT + Reddit, data = social_media)
+summary(fit2)
+#Ans) Comparing two model summaries, the exclusion of Twitter (due to its high p-value) suggests no loss in explanatory power, supporting the decision to use the reduced model without Twitter.
+
+coefficients(fit)
+#Ans) These are the estimated effects of each social media platform on the probability of having trouble falling asleep, adjusted for the presence of other variables in the model.
+
+ggpairs(data = social_media, title = "Social Media Usage", cardinality_threshold = 30)
+#Ans) This plot matrix shows scatter plots for pairs of variables, indicating the absence of linear relationships among them.
+
+confint(fit,level=0.95)
+#Ans) Provides the 95% confidence intervals for each model coefficient, defining the range within which the true effects are expected to fall with 95% certainty.
+
+fitted(fit)
+#Ans) Lists the predicted values for 'Trouble falling asleep_numeric' based on the model, showing how well the model predicts each observation.
+
+residuals(fit)
+#Ans) Lists the residuals for each observation, highlighting the difference between observed and predicted values, which helps assess model fit.
+
+anova(fit)
+#Ans) The ANOVA table quantifies how much variance each predictor explains and the overall model effectiveness, with the F-statistic testing if the overall model is significantly better than an intercept-only model.
+
+vcov(fit)
+#Ans) This matrix shows the variances and covariances between pairs of model coefficients, useful for understanding the precision of the estimates and their interdependencies.
+
+plot(fit)
+#Ans) Diagnostic plots assess model assumptions and fit, showing potential issues with residuals, influence points, and normality.
+
+r_squared <- summary(fit)$r.squared
+r_squared
+#Ans) Indicates the proportion of variance in the dependent variable explained by the model, here quantified as approximately 49.5%, suggesting a moderate fit.
+
+
+social_media_numeric <- social_media[, c('Instagram', 'LinkedIn', 'SnapChat', 'Twitter', 'Whatsapp/Wechat', 'youtube', 'OTT', 'Reddit', 'How many job interview calls received in this week.?', 'How much networking done with coffee chats?', 'How many learning done in terms of items created?')]
+
+social_media_pca <- prcomp(social_media_numeric,scale=TRUE)
+social_media_pca
+
+summary(social_media_pca)
+#Ans) The summary of the principal component analysis (PCA) shows the importance of each component:
+#Standard deviation: This indicates the spread of the data along each principal component. Higher values indicate that the component explains more variability in the data.
+#Proportion of Variance: This shows the proportion of the total variance in the data explained by each principal component. Higher values indicate that the component captures more information.
+#Cumulative Proportion: This is the cumulative sum of the proportion of variance explained. It indicates how much of the total variance is explained by the first n components.
+
+
+fviz_eig(social_media_pca, addlabels = TRUE)
+#Ans) The graph shows that the sum of first 4 PCs is 69.7%. Hence first 4 PCs should be considered
+
+PC1 <- social_media_pca$x[, 1]
+PC2 <- social_media_pca$x[, 2]
+PC3 <- social_media_pca$x[, 3]
+PC4 <- social_media_pca$x[, 4]
+
+pc_new <- data.frame(PC1, PC2, PC3, PC4)
+
+pc_new$`Trouble falling asleep_numeric` <- social_media$`Trouble falling asleep_numeric`
+pc_new
+
+fit_new <- lm(`Trouble falling asleep_numeric` ~ PC1 + PC2 + PC3 + PC4, data=pc_new)
+summary(fit_new)
+#Ans) Here's a summary of the model:
+#The intercept term has a coefficient of 0.3333 with a p-value of 0.00837, which is statistically significant.cNone of the principal components (PC1, PC2, PC3, PC4) have coefficients that are statistically significant (p-values are all greater than 0.05). The R-squared value is 0.1149, indicating that the model explains only a small portion of the variance in the "Trouble falling asleep_numeric" variable. Overall, based on this model, the principal components do not appear to be strong predictors of the "Trouble falling asleep_numeric" variable.
+
+fa.parallel(social_media_numeric) 
+
+fit.pc <- principal(social_media_numeric, nfactors=3, rotate="varimax")
+
+round(fit.pc$values, 3)
+fit.pc$loadings
+#Ans) The loadings represent the correlation between each variable and the underlying factor. A higher absolute value of the loading indicates a stronger relationship between the variable and the factor. Variables with loadings close to 1 or -1 are strongly related to the factor. Variables with loadings close to 0 are weakly related to the factor and may not contribute much to it. Loadings that are similar in magnitude across multiple factors indicate that the variable is not clearly associated with any single factor. The SS loadings, Proportion Var, and Cumulative Var provide information about the amount of variance in the data explained by each component and cumulatively by all components.
+
+loadings <- fit.pc$scores[, c("RC1", "RC2", "RC3")]
+loadings_data <- as.data.frame(loadings)
+loadings_data <- round(loadings_data, 3)
+
+loadings_data$`Trouble falling asleep_numeric` <- social_media$`Trouble falling asleep_numeric`
+
+fit_new_1 <- lm(`Trouble falling asleep_numeric`~RC1+RC2+RC3, data=loadings_data)
+summary(fit_new_1)
+
+#Ans) The regression results indicate that none of the regression coefficients for the factors (RC1, RC2, RC3) are statistically significant at conventional levels (p > 0.05). The overall model also does not seem to explain much of the variation in the Trouble falling asleep_numeric variable, as indicated by the low R-squared value and the non-significant F-statistic. This suggests that the factors derived may not be good predictors of the Trouble falling asleep_numeric variable.
+
+```
+

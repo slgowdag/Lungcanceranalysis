@@ -1,0 +1,79 @@
+---
+title: "Predictive Analysis for Breast Cancer"
+output: html_document  
+author: "hg420@scarletmail.rutgers.edu"
+date: "2024-02-12"
+
+---
+```{r}
+library(readr)
+library(graphics)
+library(dplyr)
+library(ggplot2)
+cancer <- read_csv("C:/Users/user/Desktop/Spring2024/MVA/Project/Bcancer.csv")
+str(cancer)
+dim(cancer)
+names(cancer)
+str(cancer)
+summary(cancer)
+any(is.na(df))
+```
+
+```{r}
+#Question 1: How does the distribution of tumor diagnoses differ?
+#Bar graph representing the counts of benign and malignant tumors.(Uni-variate)
+cancer %>% count(diagnosis)
+cancer$diagnosis <- as.factor(cancer$diagnosis)
+#Using shades of pale blue and soft red.
+custom_colors <- c("1" = "#ADD8E6", "2" = "#FFA07A")  
+ggplot(cancer, aes(x=diagnosis, fill= diagnosis)) +
+geom_bar(stat="count") +
+scale_fill_manual(values = custom_colors)+
+theme_classic() +
+scale_y_continuous(breaks = seq(0, 400, by = 25)) +
+labs(title="Distribution of Diagnosis")
+
+#Answer 1: The picture shows the distribution of tumor diagnoses, comparing the number of benign and malignant tumors.The bar graph shows that there are more cases of benign tumors (pale blue) around 350+ than malignant tumors (denoted in soft red) around 220+ .The number of benign tumors appears to be significantly higher than that of malignant tumors, implying a potentially higher prevalence of benign instances in the dataset.
+#The usage of red and blue hues successfully distinguishes between the two tumor kinds, making the picture easy to understand.The y-axis labels clearly indicate the count intervals, which aids in comprehending the relative frequency of tumor diagnosis.
+```
+
+
+```{r} 
+#Question 2: How does the distribution of mean radius of lobes vary between benign and malignant tumors?
+#Boxplot comparing the mean radium values of tumors based on their diagnosis.(Bi-variate)
+fig2 <- cancer[c("radius_mean", "diagnosis")]
+ggplot(fig2, aes(diagnosis, radius_mean, fill = diagnosis)) + 
+  geom_boxplot()+
+  labs(col="Type of The Tumor") + ylab("Mean radius of lobes") +
+labs(title="Distribution of diagnosis")+
+  scale_fill_manual(values = c( "dodgerblue1","red3")) 
+
+#Answer 2: The picture compares the mean radius of lobes in benign and malignant tumors.The boxplot depicts the central tendency, distribution, and skewness of mean radius values for each tumor type. We see that the median radius mean of malignant tumors (shown in red) appears to be higher than that of benign tumors (shown in dodger blue). Malignant tumors have higher variability in mean radius values, as seen by a larger interquartile range and the presence of more outliers than benign tumors. The difference in median radius mean and variability between benign and malignant tumors shows that the two categories may have different tumor sizes and structures. The color scheme efficiently separates benign and malignant tumors, making the plot easier to interpret. Overall, the display provides useful insights into the distribution of mean lobe radius across various tumor diagnoses, indicating potential variances that may indicate malignant features.
+
+```
+ 
+```{r}
+  
+#Question 3: What is the relationship between the mean radius of lobes and the mean of concavity in tumors? How does this relationship vary between benign and malignant tumors (Multi variate)
+#Scatter plot of the Concavity Mean Vs Radius Mean
+ggplot(cancer, aes(radius_mean, concavity_mean)) +
+  geom_point(aes(color = diagnosis)) +
+  labs(title = "Radious mean Vs Concavity mean",
+       y = "Mean of Concavity", x = "Radius of Lobes",
+       col="Type of The Tumor")+
+   scale_colour_manual(labels = c("1", "2"),
+                       values = c("dodgerblue1","red2")) +
+  theme_bw()
+  
+#Answer 3: The graphic depicts a multivariate analysis of the link between the mean radius of lobes and the mean concavity in tumors, taking into account the tumor diagnosis. Each point on the scatter plot represents a tumor, and its position is defined by the x-axis mean radius of lobes and the y-axis mean concavity values. We see a general pattern in which tumors with larger mean radius of lobes have greater levels of concavity, indicating a positive link between these two factors.The scatter plot is color-coded according to tumor diagnosis (benign or malignant), allowing us to visually distinguish between the two types.Malignant tumors (shown in red) appear to occupy locations with a higher mean radius of lobes and concavity than benign tumors (shown in dodger blue), indicating that the two diagnoses may have distinct tumor features. The color scheme efficiently distinguishes between benign and malignant tumors, making the plot easier to understand. Overall, the visualization sheds light on the relationship between the mean radius of lobes and the mean concavity in tumors, showing potential variations between benign and malignant tumours.
+```
+
+
+  
+
+
+
+
+
+
+

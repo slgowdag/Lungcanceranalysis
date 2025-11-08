@@ -1,2 +1,2 @@
-# Lungcanceranalysis
-Predictive analysis for Lung and breast cancer
+# HG420_MVA_INDIVIDUAL
+Predictive Analysis for Breast Cancer

@@ -1,0 +1,96 @@
+---
+title: "Factor Analysis"
+author: "hg420@scarletmail.rutgers.edu"
+date: "2024-03-25"
+output: html_document
+---
+
+```{r}
+
+
+
+library(psych)
+library(readr)
+data <- read_csv("C:/Users/user/Desktop/Spring2024/MVA/Project/Hemanth/LUNGCANCER3.csv")
+
+attach(data)
+data[1]
+fit.pc <- fa(data[-1], nfactors=3, rotate="varimax")
+fit.pc
+#Ans: The parallel analysis suggests that the number of factors should be 5. However, in the factor analysis (fit.pc), We chose to extract 3 factors.
+
+round(fit.pc$values, 3)
+fit.pc$loadings
+#Ans:  The output for the factor model: Standardized Loadings : It shows the correlation between each variable and each factor. For example, GENDER has a loading of -0.578 on Factor 1 (MR1), indicating a negative correlation.
+
+#Ans: SS Loadings: Sum of squared loadings for each factor, Proportion Var: Proportion of variance explained by each factor, Cumulative Var: Cumulative proportion of variance explained.
+
+#Ans: Show the columns that go into each factor: The loadings matrix (fit.pc$loadings) shows the correlation between each variable and each factor. Here are the columns that goes into each factor.
+
+# Communalities
+fit.pc$communality
+# Play with FA utilities
+
+fa.parallel(data[-1])
+#See factor recommendation
+fa.plot(fit.pc) 
+#See Correlations within Factors
+fa.diagram(fit.pc) 
+#Visualize the relationship
+vss(data[-1]) 
+#See Factor recommendations for a simple structure
+
+# Computing Correlation Matrix
+corrm.emp <- cor(data[-1])
+corrm.emp
+
+  plot(corrm.emp)
+data_pca <- prcomp(data[-1], scale=TRUE)
+summary(data_pca)
+plot(data_pca)
+#Ans: Initially Principal component analysis (PCA) is performed and visualized.
+
+# A table containing eigenvalues and %'s accounted, follows. Eigenvalues are the sdev^2
+(eigen_data <- round(data_pca$sdev^2,3))
+round(fit.pc$values, 3)
+names(eigen_data) <- paste("PC",1:17,sep="")
+eigen_data
+sumlambdas <- sum(eigen_data)
+sumlambdas
+propvar <- round(eigen_data/sumlambdas,2)
+propvar
+cumvar_data <- cumsum(propvar)
+cumvar_data
+matlambdas <- rbind(eigen_data,propvar,cumvar_data)
+matlambdas
+rownames(matlambdas) <- c("Eigenvalues","Prop. variance","Cum. prop. variance")
+rownames(matlambdas)
+eigvec.emp <- data_pca$rotation
+
+# Taking the first four PCs to generate linear combinations for all the variables with four factors
+pcafactors.emp <- eigvec.emp[,1:7]
+pcafactors.emp
+
+# Multiplying each column of the eigenvector’s matrix by the square-root of the corresponding eigenvalue in order to get the factor loadings
+unrot.fact.emp <- sweep(pcafactors.emp,MARGIN=2,data_pca$sdev[1:7],`*`)
+unrot.fact.emp
+
+# Computing communalities
+communalities.emp <- rowSums(unrot.fact.emp^2)
+communalities.emp
+
+# Performing the varimax rotation. The default in the varimax function is norm=TRUE thus, Kaiser normalization is carried out
+rot.fact.emp <- varimax(unrot.fact.emp)
+#View(unrot.fact.emp)
+rot.fact.emp
+#Ans: The output for the factor model: Standardized Loadings : It shows the correlation between each variable and each factor. For example, GENDER has a loading of 0.238 on Factor 1 (PC1), indicating a positive correlation.
+
+#Ans: SS Loadings: Sum of squared loadings for each factor, Proportion Var: Proportion of variance explained by each factor, Cumulative Var: Cumulative proportion of variance explained.
+
+# The print method of varimax omits loadings less than abs(0.1). In order to display all the loadings, it is necessary to ask explicitly the contents of the object $loadings
+fact.load.emp <- rot.fact.emp$loadings[1:17,1:7]
+
+# Computing the rotated factor scores for the 30 European Countries. Notice that signs are reversed for factors F2 (PC2), F3 (PC3) and F4 (PC4)
+scale.emp <- scale(data[-1])
+
+```

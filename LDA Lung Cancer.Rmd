@@ -1,0 +1,86 @@
+---
+title: "LDA"
+author: "hg420@scarletmail.rutgers.edu"
+date: "2024-04-28"
+output: html_document
+---
+
+
+```{r}
+
+
+
+library(MASS)
+library(ggplot2)
+library(dplyr)
+library(klaR)
+
+# Load the lung cancer dataset
+lung_cancer <- read.csv("C:/Users/user/Desktop/Spring2024/MVA/Project/Hemanth/LUNGCANCER3.csv")
+
+# Explore dataset structure
+print(head(lung_cancer))
+print(dim(lung_cancer))
+print(str(lung_cancer))
+
+# Prepare the data
+lung_cancer$data <- as.matrix(lung_cancer[,2:18])  # Exclude the 'LUNG_CANCER' target column
+row.names(lung_cancer$data) <- NULL
+lung_cancer$target <- as.numeric(lung_cancer$LUNG_CANCER) - 1  # Make the target binary (0 or 1)
+
+# Split data into training and test sets
+set.seed(123)  # For reproducibility
+smp_size <- floor(0.75 * nrow(lung_cancer$data))
+train_ind <- sample(seq_len(nrow(lung_cancer$data)), size = smp_size)
+train <- lung_cancer$data[train_ind, ]
+test <- lung_cancer$data[-train_ind, ]
+train_target <- lung_cancer$target[train_ind]
+test_target <- lung_cancer$target[-train_ind]
+
+# Perform LDA
+lung_cancer.lda <- lda(train_target ~ ., data = as.data.frame(train))
+pred <- predict(lung_cancer.lda, newdata = as.data.frame(test))
+
+# Ensure that pred$x exists
+if (!is.null(pred$x)) {
+  scores <- as.data.frame(pred$x)
+  print("Scores object created, column names are:")
+  print(colnames(scores))
+} else {
+  stop("No discriminant scores available, check your LDA model and data.")
+}
+
+# Plotting logic, ensure this only runs if scores is defined
+if (exists("scores")) {
+  if ("LD2" %in% colnames(scores)) {
+    ggplot(scores, aes(x = LD1, y = LD2)) +
+      geom_point(aes(color = as.factor(test_target))) +
+      labs(color = "Lung Cancer Status") +
+      ggtitle("LDA Projection of Test Data")
+  } else {
+    ggplot(scores, aes(x = LD1, y = jitter(rep(1, nrow(scores))))) +
+      geom_point(aes(color = as.factor(test_target))) +
+      labs(x = "LD1", y = "Jitter (Fixed Axis)") +
+      ggtitle("LDA Projection on LD1") +
+      theme(axis.title.y=element_blank())
+  }
+} else {
+  print("Scores object not available for plotting.")
+}
+
+
+#Answers
+#Model Development : In the initial stage of model development, the focus is on preparing the dataset and constructing the Linear Discriminant Analysis (LDA) model. Firstly, the lung cancer dataset is loaded, and its structure is examined to gain insights into the features and their types. Subsequently, the dataset undergoes preparation where predictors, excluding the target variable 'LUNG_CANCER,' are selected and converted into a matrix format, while the target variable is encoded as binary. This step is crucial for facilitating the input of data into the LDA model. Finally, the LDA model is fitted to the training data using the lda() function from the MASS package. This function identifies differences between groups to determine the optimal combination of predictors for effectively distinguishing them, forming the cornerstone of model development.
+
+#Model Acceptance: Accepting a model usually entails assessing it against predetermined effectiveness standards. In this process, the model is directly applied for predictions, and its acceptance can be deduced from performance metrics like accuracy. Additionally, examining the summary of the LDA model would offer insights into coefficients and explained variance, aiding in comprehending the model's ability to distinguish between classes, although this step is not explicitly performed in the script but is recommended.
+
+#Residual Analysis: Residual analysis in classification refers to examining the errors made by the model. This involves predicting outcomes with the model, comparing them to the actual data, and scrutinizing the discrepancies (residuals) to identify potential patterns overlooked by the model. This process is typically conducted using the predict() function in scripts, applying the model to test data to generate predictions for analysis.
+
+#Prediction: Forecasting entails utilizing the model to forecast outcomes on fresh data, as explicitly detailed in the script: Through the employment of the predict() function, forecasts are generated on the test dataset, with the script verifying the presence of discriminant scores (pred$x). Should these scores be present, they are employed for visualization purposes, aiding in the assessment of the model's efficacy in distinguishing between the two classes.
+
+#Model accuracy: serves as a direct measure of its efficacy, determined through a calculation process. By comparing the predicted outcomes with the actual labels from the test dataset, this procedure quantifies the model's performance, providing a clear and objective metric for evaluating its effectiveness.
+
+#Examining the confusion matrix offers valuable insights into error types like false positives and false negatives, crucial for interpreting clinical data. Similarly, employing cross-validation enhances the model evaluation's robustness by testing performance across various dataset subsets.
+
+```
+

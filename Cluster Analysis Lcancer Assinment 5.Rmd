@@ -1,0 +1,147 @@
+---
+title: "Cluster Analysis - Assignment 5"
+author: "hg420@scarletmail.rutgers.edu"
+date: "2024-03-23"
+output: html_document
+---
+
+```{r}
+
+library(cluster)
+library(readr)
+library(factoextra)
+library(magrittr)
+library(NbClust)
+
+
+lung <- read.csv("C:/Users/user/Desktop/Spring2024/MVA/Project/Hemanth/LUNGCANCER3.csv")
+lung
+matstd.lung <- scale(lung[,2:18])
+# K-means, k=2, 3, 4, 5, 6
+# Centers (k's) are numbers thus, 10 random sets are chosen
+
+(kmeans2.lung <- kmeans(matstd.lung,2,nstart = 10))
+# Computing the percentage of variation accounted for. Two clusters
+perc.var.2 <- round(100*(1 - kmeans2.lung$betweenss/kmeans2.lung$totss),1)
+names(perc.var.2) <- "Perc. 2 clus"
+perc.var.2
+
+#Ans: The cluster-sum of squares is observed to be 87.7%.
+
+# Computing the percentage of variation accounted for. Three clusters
+(kmeans3.lung <- kmeans(matstd.lung,3,nstart = 10))
+perc.var.3 <- round(100*(1 - kmeans3.lung$betweenss/kmeans3.lung$totss),1)
+names(perc.var.3) <- "Perc. 3 clus"
+perc.var.3
+
+#Ans: The cluster-sum of squares is observed to be 80.5%
+
+# Computing the percentage of variation accounted for. Four clusters
+(kmeans4.lung <- kmeans(matstd.lung,4,nstart = 10))
+perc.var.4 <- round(100*(1 - kmeans4.lung$betweenss/kmeans4.lung$totss),1)
+names(perc.var.4) <- "Perc. 4 clus"
+perc.var.4
+
+#Ans: The cluster-sum of squares is observed to be 75.3
+
+# Computing the percentage of variation accounted for. Five clusters
+(kmeans5.lung <- kmeans(matstd.lung,5,nstart = 10))
+perc.var.5 <- round(100*(1 - kmeans5.lung$betweenss/kmeans5.lung$totss),1)
+names(perc.var.5) <- "Perc. 5 clus"
+perc.var.5
+(kmeans6.lung <- kmeans(matstd.lung,6,nstart = 10))
+
+#Ans: The cluster-sum of squares is observed to be 71.4%
+
+# Computing the percentage of variation accounted for. Six clusters
+perc.var.6 <- round(100*(1 - kmeans6.lung$betweenss/kmeans6.lung$totss),1)
+names(perc.var.6) <- "Perc. 6 clus"
+perc.var.6
+
+#Ans: The cluster-sum of squares is observed to be 68.1%
+
+attributes(perc.var.6)
+Variance_List <- c(perc.var.2,perc.var.3,perc.var.4,perc.var.5,perc.var.6)
+
+Variance_List
+plot(Variance_List)
+
+
+#Ans: The graph shows that having four clusters is ideal, as the slope appears to flatten out after that point.
+
+clus1 <- lung[kmeans4.lung$cluster == 1,]
+colnames(clus1) <- "Cluster 1"
+
+clus2 <- lung[kmeans4.lung$cluster == 2, ]
+colnames(clus2) <- "Cluster 2"
+
+clus3 <- lung[kmeans4.lung$cluster == 3, ]
+colnames(clus3) <- "Cluster 3"
+
+clus4 <- lung[kmeans4.lung$cluster == 4, ]
+colnames(clus4) <- "Cluster 4"
+
+#Ans: The code above generates subsets of the lung dataset according on the clusters allocated by the kmeans4.lung clustering algorithm. Here's a breakdown of every part.
+#clus1 <- lung[kmeans4.lung$cluster == 1,]: This line generates a subset of lung whose cluster assignment in kmeans4.lung is equal to 1. This subset is kept in clus 1.
+
+#colnames(clus1) <- "Cluster 1": This line renames the column in clus1 to "Cluster 1". This is useful in determining which cluster the data in clus1 belongs to.
+
+#Similarly, the next lines construct subsets clus2, clus3, and clus4 for clusters 2, 3, and 4, and rename their corresponding columns.
+
+list(clus1,clus2,clus3,clus4)
+
+
+new_data <- lung[, c("SMOKING", "YELLOW_FINGERS", "ANXIETY", "PEER_PRESSURE", "CHRONIC_DISEASE", "FATIGUE", "ALLERGY", "WHEEZING", "ALCOHOL_CONSUMING", "COUGHING", "SHORTNESS_OF_BREATH", "SWALLOWING_DIFFICULTY", "CHEST_PAIN", "WEIGHT", "HEIGHT_INCH")] %>% na.omit() %>% scale()
+
+fviz_nbclust(new_data, kmeans, method = "gap_stat")
+
+#Ans: The graph clearly shows that 6 would be the best number of clusters.
+
+set.seed(123)
+km.res <- kmeans(new_data, 3, nstart = 25)
+fviz_cluster(km.res, data = new_data,
+             ellipse.type = "convex",
+             palette = "jco",
+             ggtheme = theme_minimal())
+
+#Ans: Three clusters are produced. Clusters 1, 2, and 3 are slightly overlapped. Additionally, clusters 1 and 3 are less in size than cluster 2.
+
+lung_pca <- prcomp(lung[, c("SMOKING", "YELLOW_FINGERS", "ANXIETY", "PEER_PRESSURE", "CHRONIC_DISEASE", "FATIGUE", "ALLERGY", "WHEEZING", "ALCOHOL_CONSUMING", "COUGHING", "SHORTNESS_OF_BREATH", "SWALLOWING_DIFFICULTY", "CHEST_PAIN", "WEIGHT", "HEIGHT_INCH")])
+lung_pca
+summary(lung_pca)
+
+PC1 <- lung_pca$x[,1]
+PC2 <-lung_pca$x[,2]
+
+lung_pca_df <- as.data.frame(lung_pca$x)
+
+matstd.new_pca <- lung_pca_df
+
+res.nbclust <- matstd.new_pca %>% scale() %>% NbClust(distance = "euclidean", min.nc = 2, max.nc = 10, method = "complete", index ="all") 
+
+fviz_nbclust(matstd.new_pca, kmeans, method = "silhouette")
+
+#Ans: The optimal number of clusters would be two.
+
+set.seed(123)
+kmeans3.lung_pca <- kmeans(matstd.new_pca, 3, nstart = 25)
+
+kmeans3.lung_pca
+
+km.lung_pca <- kmeans(matstd.new_pca, 3, nstart =25)
+
+fviz_cluster(km.lung_pca, data = matstd.new_pca,
+             ellipse.type = "convex",
+             palette = "jco",
+             ggtheme = theme_minimal())
+
+#Ans: Three clusters are produced. As you can see, all three clusters are closely banded. As indicated in the previous observation, no clusters are slightly separated from one another, and the sizes of all three clusters are about comparable. 
+
+
+
+
+```
+
+
+
+

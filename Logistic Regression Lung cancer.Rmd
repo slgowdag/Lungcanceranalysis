@@ -1,0 +1,136 @@
+---
+title: "Logistic Regression Lcancer"
+author: "hg420@scarletmail.rutgers.edu"
+date: "2024-04-19"
+output: html_document
+---
+
+```{r}
+
+
+
+library(readr)
+library(MVA)
+library(HSAUR2)
+library(SciViews)
+library(scatterplot3d)
+library(car)
+library(lattice)
+library(GGally)
+library(ggplot2)
+library(ggridges)
+library(ggvis)
+library(ggthemes)
+library(cowplot)
+library(gapminder)
+library(gganimate)
+library(dplyr)
+library(tidyverse)
+library(grid)
+library(gridExtra)
+library(RColorBrewer)
+library(Hotelling)
+library(stats)
+library(biotools)
+library(factoextra)
+library(FactoMineR)
+library(ggfortify)
+library(psych)
+library(corrplot)
+library(devtools)
+library(cluster)
+library(magrittr)
+library(NbClust)
+library(MASS)
+library(gvlma)
+library(leaps)
+library(relaimpo)
+library(e1071)
+library(pROC)
+library(memisc)
+library(ROCR)
+library(klaR)
+library(caret)
+library(caTools)
+
+
+cancer <- read_csv("C:/Users/user/Desktop/Spring2024/MVA/Project/Hemanth/LUNGCANCER3.csv")
+str(cancer)
+attach(cancer)
+
+set.seed(123)
+split = sample.split(cancer$LUNG_CANCER, SplitRatio = 0.80)
+train_lc = subset(cancer, split == TRUE)
+test_lc = subset(cancer, split == FALSE)
+
+#Answer: The dataset is divided into training (80%) and testing (20%) subsets using a random seed for reproducibility. This step is crucial for training the model on one set of data and validating it on another.
+
+
+Xtrain_lc <- train_lc[,-1]
+Ytrain_lc <- train_lc[,1]
+
+Xtest_lc <- test_lc[,-1]
+x_lc <- cbind(Xtrain_lc,Ytrain_lc)
+logistic_lc <- glm(LUNG_CANCER ~ ., data = x_lc,family='binomial')
+summary(logistic_lc)
+
+#Answer:This step involves creating a logistic regression model using all predictors in the dataset (x_lc). The model is specified to use the binomial family, appropriate for binary outcomes like lung cancer presence (LUNG_CANCER being 0 or 1).
+#Answer: The summary(logistic_lc) command outputs the coefficients for each predictor, their standard errors, z-values, and the significance levels (p-values). This summary helps in understanding which factors are statistically significant predictors of lung cancer.
+
+
+#Residual Analysis: While explicit residual analysis code and output are not provided, it typically involves checking the residuals of the logistic regression model to ensure that they are randomly distributed around zero, indicating a good fit.
+
+
+set.seed(1234) # for reproducibility
+probabilities_lc <- predict(logistic_lc, newdata = Xtest_lc, type = "response")
+
+predicted_lc <- ifelse(probabilities_lc > 0.5, "Yes", "No")
+actual_lc <- ifelse(test_lc$LUNG_CANCER == 1, "Yes", "No")
+
+#Answer: The model is used to predict lung cancer presence in the test dataset (Xtest_lc). Predictions are probabilities due to the type = "response" parameter.These probabilities are converted to categorical outcomes ("Yes" or "No") using a threshold of 0.5. This step is crucial for creating actionable predictions from the model.
+
+# Confusion matrix
+conf_mat <- table(actual_lc, predicted_lc)
+conf_mat
+
+# Precision
+precision <- conf_mat[2, 2] / sum(conf_mat[, 2])
+precision
+
+# Recall
+recall <- conf_mat[2, 2] / sum(conf_mat[2, ])
+recall
+
+roc_lc <- roc(test_lc$LUNG_CANCER, probabilities_lc)
+auc_lc <- auc(roc_lc)
+auc_lc
+
+#Answer: A confusion matrix (conf_mat) is used to calculate precision and recall, two critical measures of model accuracy. Precision measures the accuracy of positive predictions, and recall measures the ability to detect all positive cases. The ROC curve is generated for the model, and the Area Under the Curve (AUC) is calculated (auc_lc). AUC is a comprehensive performance measure that evaluates the model's ability to classify the outcomes correctly across all possible threshold values.
+
+#  generating full multiple logistic regression 
+full_model <- glm(LUNG_CANCER ~ SMOKING + WHEEZING + COUGHING + ALCOHOL_CONSUMING, family = binomial(link = logit)) 
+summary(full_model)
+
+
+full_model1 <- glm(LUNG_CANCER ~ ANXIETY + PEER_PRESSURE, family = binomial(link = logit)) 
+summary(full_model)
+
+#Answer: A focused logistic regression model (full_model) is developed using a subset of predictors believed to be highly relevant based on previous findings.The output from summary(full_model) shows the model coefficients, providing insights into the effects of these specific factors on lung cancer risk. The significance codes next to the coefficients indicate their impact levels, helping decide if the model is acceptable based on empirical evidence.
+
+# exponentiate the confidence intervals around the log odds for each predictor variable to obtain the odds 
+exp(confint(full_model))
+
+
+ggroc(roc_lc, color = "blue", legacy.axes = TRUE) +
+  geom_abline(intercept = 0, slope = 1, linetype = "dashed") +
+  scale_x_continuous(labels = scales::percent_format()) +
+  scale_y_continuous(labels = scales::percent_format()) +
+  labs(x = "False Positive Rate", y = "True Positive Rate",
+       title = paste("ROC Curve (AUC = ", round(auc_lc, 2), ")")) +
+  annotate("text", x = 0.5, y = 0.5, label = paste0("AUC = ", round(auc_lc, 2)))
+  
+#Answer: This code block generates a ROC curve, which plots the True Positive Rate against the False Positive Rate at various threshold settings. The curve includes a dashed line at y=x, indicating the performance of a non-discriminatory classifier. The AUC value is annotated on the plot, providing a visual and numeric summary of the model's classification effectiveness.
+
+```
+
+ 

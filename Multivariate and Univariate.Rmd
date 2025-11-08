@@ -1,0 +1,128 @@
+---
+title: "Univariate and Multivariate"
+author: "hg420@scarletmail.rutgers.edu"
+date: "2024-02-26"
+output: html_document
+---
+
+#Assignment3
+
+#Question1: What are the mean values, covariance matrix, and Mahalanobis distances for the variables "radius_mean" and "texture_mean" in the breast cancer dataset, and how do they differ between the two comparison groups?
+
+```{r}
+cancer <- read.csv("/Users/user/Desktop/Spring2024/MVA/Project/BcancerNew.csv")
+cancer_x <- cancer[, 3:4]
+cancer_x
+cancer_cm <- colMeans(cancer_x)
+cancer_S <- cov(cancer_x)
+cancer_d <- apply(cancer_x, MARGIN = 1, function(cancer_x)t(cancer_x - cancer_cm) %*% solve(cancer_S) %*% (cancer_x - cancer_cm))
+cancer_cm
+cancer_S
+cancer_d
+```
+
+
+
+```{r}
+# t-tests, one by one. radius_mean vs. texture_mean
+with(data=cancer,t.test(radius_mean[comparison=='Yes'],radius_mean[comparison=='No'],var.equal=TRUE))
+with(data=cancer,t.test(texture_mean[comparison=='Yes'],texture_mean[comparison=='No'],var.equal=TRUE))
+
+
+```
+
+#Answer 1:The given R code runs numerous studies on the breast cancer dataset. Initially, it reads the dataset, which is likely to contain numerous breast cancer-related features. It then selects columns 3 and 4 from the dataset, which correspond to "radius_mean" and "texture_mean," respectively. Following that, the code calculates the column means for the specified variables, providing information about their average values across the dataset (stored in the variable 'cancer_cm'). Furthermore, it computes the covariance matrix ('cancer_S') to better understand the correlations and variability between the two variables. Furthermore, the code computes Mahalanobis distances ('cancer_d'), which assess each observation's distance from the mean in multivariate space while taking covariance into account.Finally, the code uses independent t-tests to compare "radius_mean" and "texture_mean" across two groups labeled "Yes" and "No" in the "comparison" variable. These t-tests seek to determine whether there are statistically significant differences in the means of these variables between the two groups, providing useful information about potential relationships with the outcome variable.
+
+
+#Question 2: What are the results of Hotelling's T-squared test for "radius_mean" and "texture_mean" between the groups "Yes" and "No" in the "comparison" variable in the breast cancer dataset, and how do they differ?
+
+```{r}
+library(Hotelling)
+t2testcancer <- hotelling.test(radius_mean + texture_mean ~ comparison, data=cancer)
+# Output of the function hotelling.test is given
+cat("T2 statistic =",t2testcancer$stat[[1]],"\n")
+print(t2testcancer)
+#  T2 statistic is located in the first element of the list "stat"
+
+# testing Variation
+# F-test for Total length (not recommended)
+var.test(cancer$radius_mean[cancer$comparison=='Yes'],cancer$radius_mean[cancer$comparison=='No'])
+attach(cancer)
+var.test(cancer$radius_mean[cancer$comparison=='Yes'],cancer$radius_mean[cancer$comparison=='No'])
+
+# Levene's tests based on absolute differences around means using t-tests. Standarizing the cancer data set with scale()
+
+matstand <- scale(cancer[,3:4])
+matstand
+matsurv <- matstand[comparison == 'Yes',]
+matsurv
+matnosurv <- matstand[comparison == 'No',]
+vecmediansurv <- apply(matsurv, 2, median)
+# in the above 2 represents column. Hence, we are asking for column median
+vecmediansurv
+
+vecmediannosurv <- apply(matnosurv, 2, median)
+matabsdevsurv <- abs(matsurv - matrix(rep(vecmediansurv,nrow(matsurv)),nrow=nrow(matsurv), byrow=TRUE))
+
+matabsdevnosurv <- abs(matnosurv - matrix(rep(vecmediannosurv,nrow(matnosurv)),nrow=nrow(matnosurv), byrow=TRUE))
+
+matabsdevnosurv
+
+matabsdev.all <- rbind(matabsdevsurv,matabsdevnosurv)
+matabsdev.all <- data.frame(comparison, matabsdev.all)
+
+t.test(matabsdev.all$radius_mean[comparison == 'Yes'],matabsdev.all$radius_mean[comparison == 'No'], alternative="less",var.equal = TRUE)
+
+t.test(matabsdev.all$texture_mean[comparison == 'Yes'],matabsdev.all$texture_mean[comparison == 'No'], alternative="less",var.equal = TRUE)
+
+
+
+
+
+```
+
+```{r}
+matstand
+
+matstand.all <- data.frame(comparison, matstand)
+ncol(matstand.all)
+colnames(matstand.all) <- colnames(cancer[1:2])
+t2testsparr <- hotelling.test(radius_mean+texture_mean ~ comparison,data=matstand.all)
+cat("T2 statistic =",t2testsparr$stat[[1]],"\n")
+print(t2testsparr)
+
+
+matabsdev.all
+
+
+```
+#Answer2: The given R code does a variety of statistical studies on the breast cancer dataset. First, it combines the standardized data, which contains the "radius_mean" and "texture_mean" variables, with the group labels. Then, it uses Hotelling's T-squared test to compare these variables across different groups in the dataset. The code then reports the T2 statistic along with the test results, providing insights into the groups' multivariate differences. Furthermore, it examines the absolute deviations of the standardized data, which aids in understanding the variability of the variables around their respective group mean. Finally, the code uses ANOVA (Analysis of Variance) to compare the differences in "radius_mean" and "texture_mean" between groups, providing more information about the univariate disparities.Overall, the goal of these studies is to identify any significant differences in variables between various groups within the breast cancer dataset, allowing for a better understanding of the dataset's characteristics and potential relationships with outcomes.
+
+
+#Question3: How do variables "radius_mean" and "texture_mean" differ between groups "Yes" and "No" in the breast cancer dataset, and what multivariate analyses are performed?
+```{r}
+# ANOVA
+summary(aov(radius_mean ~ comparison))
+summary(aov(texture_mean ~ comparison))
+
+# mahalanobis
+library(stats)
+
+cancer_MD <- mahalanobis(cancer_x, cancer_cm, cancer_S)
+cancer_MD
+cancer$pvalues <- pchisq(cancer_MD, df=3, lower.tail=FALSE)
+cancer
+```
+
+
+```{r}
+# BoxM
+
+library(biotools)
+boxM(cancer[,2:32],comparison)
+
+# MANOVA
+summary(manova(as.matrix(cancer[,1:32])~ comparison))
+
+```
+#Answer3: The given R code does a thorough set of analyses on the breast cancer dataset. To begin, ANOVA is used to compare "radius_mean" and "texture_mean" amongst different groups in the dataset. It then calculates Mahalanobis distances, which are measures of the distance between each observation and the group mean in multivariate space, to detect potential multivariate outliers. The method then calculates p-values for Mahalanobis distances using the chi-square distribution, which aids in the detection of significant outliers. It also uses Box's M test to detect changes in multivariate variances between groups, which is critical for evaluating the homogeneity of variances assumption in ANOVA. Finally, the code uses MANOVA to compare differences in all variables between groups, offering a thorough picture of the variables' multivariate associations with the grouping variable. These studies provide insights into the links and differences in the breast cancer dataset, allowing for further data investigation and interpretation.

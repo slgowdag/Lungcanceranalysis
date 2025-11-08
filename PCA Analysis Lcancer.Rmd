@@ -1,0 +1,115 @@
+---
+title: "Lung Cancer Analysis"
+output: html_document
+date: "2023-04-17"
+---
+# PCA
+```{r}
+library(readr)
+cancer <- read_csv("C:/Users/user/Desktop/Spring2024/MVA/Project/Hemanth/LUNGCANCER3.csv")
+str(cancer)
+attach(cancer)
+
+#Load packages
+library(lattice)
+library(ggplot2)
+library(ggridges)
+library(ggvis)
+library(ggthemes)
+library(cowplot)
+library(gapminder)
+library(gganimate)
+library(dplyr)
+library(tidyverse)
+library(grid)
+library(gridExtra)
+library(RColorBrewer)
+
+# Using prcomp to compute the principal components (eigenvalues and eigenvectors). With scale=TRUE, variable means are set to zero, and variances set to one
+cancer_pca <- prcomp(cancer[,-1],scale=TRUE)
+
+summary(cancer_pca)
+#* The standard deviation shows how much of the original data's variation is captured by each primary component. The first principal component (PC1) has the biggest standard deviation of 1.6925, indicating that it accounts for the most of the volatility in the original data. As we progress down the list of primary components, the standard deviation drops, indicating that each succeeding component accounts for less and less of the overall variation.
+
+#* The proportion of variance reveals how much of the original data's variance is explained by each major component. For example, the first principal component (PC1) explains 16.85% of the total variance in the data, while the second component (PC2) accounts for an additional 11.52%. As we progress down the list of principle components, the proportion of variation explained by each component decreases.
+
+#* The cumulative proportion represents the total amount of variance in the data explained by each principal component and all previous components. For example, the first principal component (PC1) accounts for 16.85% of the data's variation, whereas PC1 and PC2 combine to account for 28.37%. The cumulative proportion can help determine how many primary components to keep for future investigation.
+
+
+# sample scores stored in cancer_pca$x
+# singular values (square roots of eigenvalues) stored in cancer_pca$sdev
+# loadings (eigenvectors) are stored in cancer_pca$rotation
+# variable means stored in cancer_pca$center
+# variable standard deviations stored in cancer_pca$scale
+# A table containing eigenvalues and %'s accounted, follows
+# Eigenvalues are sdev^2
+(eigen_cancer <- cancer_pca$sdev^2)
+
+names(eigen_cancer) <- paste("PC",1:17,sep="")
+
+sumlambdas <- sum(eigen_cancer)
+
+propvar <- eigen_cancer/sumlambdas
+cumvar_cancer <- cumsum(propvar)
+
+
+
+matlambdas <- rbind(eigen_cancer,propvar,cumvar_cancer)
+rownames(matlambdas) <- c("Eigenvalues","Prop. variance","Cum. prop. variance")
+round(matlambdas,4)
+
+summary(cancer_pca)
+print(cancer_pca)
+
+# Identifying the scores by their survival status
+cancerp_pca <- cbind(data.frame(LUNG_CANCER),cancer_pca$x)
+# Means of scores for all the PC's classified by Survival status
+tabmeansPC <- aggregate(cancerp_pca[,2:15],by=list(LUNG_CANCER=cancer$LUNG_CANCER),mean)
+
+tabmeansPC <- tabmeansPC[rev(order(tabmeansPC$LUNG_CANCER)),]
+
+tabfmeans <- t(tabmeansPC[,-1])
+
+colnames(tabfmeans) <- t(as.vector(tabmeansPC[1]$LUNG_CANCER))
+
+# Standard deviations of scores for all the PC's classified by Survival status
+tabsdsPC <- aggregate(cancerp_pca[,2:15],by=list(LUNG_CANCER=cancer$LUNG_CANCER),sd)
+tabfsds <- t(tabsdsPC[,-1])
+colnames(tabfsds) <- t(as.vector(tabsdsPC[1]$LUNG_CANCER))
+tabfsds
+t.test(PC1~cancer$LUNG_CANCER,data=cancerp_pca)
+t.test(PC2~cancer$LUNG_CANCER,data=cancerp_pca)
+t.test(PC3~cancer$LUNG_CANCER,data=cancerp_pca)
+t.test(PC4~cancer$LUNG_CANCER,data=cancerp_pca)
+t.test(PC5~cancer$LUNG_CANCER,data=cancerp_pca)
+#The output reveals that the p-value is 0.07939, which is greater than the significance level of 0.05, implying that we cannot reject the null hypothesis of no change in means between the two groups at the 5% level for PC1. Similarly, we can do similar with other PCs. 
+
+plot(eigen_cancer, xlab = "Component number", ylab = "Component variance", type = "l", main = "Scree diagram")
+plot(log(eigen_cancer), xlab = "Component number",ylab = "log(Component variance)", type="l",main = "Log(eigenvalue) diagram")
+print(summary(cancer_pca))
+#The first three PCs (PC1, PC2, and PC3) together account for 38.5% of the variance in the data. The first seven PCs (PCs 1–7) explain 66.5% of the variance, whereas the first 14 PCs explain 94.1% of the variance. As a result, the top few PCs appear to capture the majority of the data's volatility. The report also shows that the standard deviation of each PC lowers as the PC index grows. This means that the amount of variation explained by each PC diminishes as the index rises. The proportion of variance and cumulative proportion for each PC follow a similar trend.
+
+plot(cancer_pca)
+
+#get the original value of the data based on PCA
+center <- cancer_pca$center
+scale <- cancer_pca$scale
+new_cancer <- as.matrix(cancer[,-1])
+
+drop(scale(new_cancer,center=center, scale=scale)%*%cancer_pca$rotation[,1])
+predict(cancer_pca)[,1]
+#The aboved two gives us the same thing. predict is a good function to know.
+cancer$LUNG_CANCER <- as.factor(cancer$LUNG_CANCER)
+out <- sapply(1:5, function(i){plot(cancer$LUNG_CANCER,cancer_pca$x[,i],xlab=paste("PC",i,sep=""),ylab="LUNG CANCER")})
+
+library(factoextra)
+library(FactoMineR)
+library(ggfortify)
+library(psych)
+library(corrplot)
+library(devtools)
+
+fviz_eig(cancer_pca, addlabels = TRUE)
+
+```
+

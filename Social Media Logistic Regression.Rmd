@@ -1,0 +1,80 @@
+---
+title: "Social Media Logistic Regression"
+author: "hg420@scarletmail.rutgers.edu"
+date: "2024-04-22"
+output: html_document
+---
+
+```{r}
+
+
+library(factoextra)
+library(FactoMineR)
+library(psych)
+library(ggplot2)
+library(cowplot)
+library(caret)
+library(e1071)
+library(pROC)
+library(readr)
+
+social_media <- read_csv("C:/Users/user/Desktop/Spring2024/MVA/Social media/social_media_cleaned_new.csv")
+
+str(social_media)
+
+#Ans)A summary of responses from 21 individuals regarding their social media usage and various aspects of their week, such as mood, productivity, and sleep patterns. 
+#Social Media Usage: The data includes columns for different social media platforms (e.g., Instagram, LinkedIn, Snapchat, Twitter, etc.) and the average time spent on each platform by the 21 individuals.
+#Other Activities: The data also includes information about other activities, such as job interview calls received, networking done through coffee chats, and learning activities in terms of items created.
+#Mood and Productivity: There is a column indicating whether individuals felt productive during the week, which could be correlated with their social media usage and other activities.
+#Sleep Patterns: The data includes columns related to sleep, such as tiredness upon waking up and trouble falling asleep, both of which could be influenced by social media usage and daily activities.
+
+social_media$`Trouble falling asleep_numeric` <- ifelse(social_media$`Trouble falling asleep` == "Yes", 1, 0)
+str(social_media)
+#Ans) A new column Trouble falling asleep_numeric is created where the values are 'num' data type
+
+social_media$`Trouble falling asleep` <- ifelse(test = social_media$`Trouble falling asleep` == "Yes", yes = "Yes", no = "No")
+ social_media$`Trouble falling asleep` <- as.factor(social_media$`Trouble falling asleep`)
+str(social_media)
+#) The column Trouble falling asleep is now a factor with 2 levels
+
+logistic_simple <- glm(`Trouble falling asleep` ~ ., data = social_media, family = "binomial")
+summary(logistic_simple)
+
+#Ans) There are many predictor variables with very small estimates and large standard errors, which could indicate collinearity.The pr value is 1 in all columns, suggesting a weak link between the predictor and outcome variables.
+
+new_data <- data.frame(probability.of.Trouble_falling_asleep=logistic_simple$fitted.values,Trouble_falling_asleep =social_media$`Trouble falling asleep`)
+new_data <- new_data[order(new_data$probability.of.Trouble_falling_asleep, decreasing=FALSE),]
+new_data$rank <- 1:nrow(new_data)
+
+ggplot(data=new_data, aes(x=rank, y=probability.of.Trouble_falling_asleep)) +
+geom_point(aes(color=Trouble_falling_asleep), alpha=1, shape=4, stroke=2) +
+xlab("Index") +
+ylab("Predicted probability of Trouble_falling_asleep")
+
+#Ans) A scatter plot of probability.of.Trouble_falling_asleep against rank is where each point is colored based on the Trouble_falling_asleep variable.We can determine that the logistic regression assumptions are satisfied if there is no overlap.
+
+data_new <- predict(logistic_simple,newdata=social_media,type="response" )
+data_new
+
+#Ans) We predict the response variable  for data stored in the social media dataset. The predicted probabilities of each level of the response variable for each observation in the social media dataset is calculated.
+
+data_2 <- as.factor(ifelse(test=as.numeric(data_new>0.5) == "Yes", yes="Yes", no="No"))
+data_2 <- factor(data_2, levels = levels(social_media$`Trouble falling asleep`))
+
+confusionMatrix(data_2, social_media$`Trouble falling asleep`)
+#Ans) The confusion matrix and statistics for predicting "Trouble falling asleep" are as follows:
+#Accuracy: 0.6667
+#95% CI: (0.4303, 0.8541)
+#No Information Rate: 0.6667
+#Kappa: 0
+#Sensitivity: 1.0000
+#Specificity: 0.0000
+#Pos Pred Value: 0.6667
+#Prevalence: 0.6667
+#Detection Rate: 0.6667
+#Detection Prevalence: 1.0000
+#Balanced Accuracy: 0.5000
+#This suggests that the model has a sensitivity of 1.0000 (all actual positive cases are correctly identified), but a specificity of 0.0000 (no actual negative cases are correctly identified), resulting in an overall accuracy of 0.6667. The Kappa statistic is 0, indicating no agreement between the model and the actual outcomes beyond that expected by chance.
+
+
+```

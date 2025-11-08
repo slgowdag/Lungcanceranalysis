@@ -1,0 +1,108 @@
+---
+title: "Social Media LDA"
+author: "hg420@scarletmail.rutgers.edu"
+date: "2024-04-29"
+output: html_document
+---
+
+```{r}
+
+
+
+library(MASS)
+library(ggplot2)
+library(memisc)
+library(ROCR)
+library(dplyr)
+library(klaR)
+
+wdbc <- read.csv("C:/Users/user/Desktop/Spring2024/MVA/Social media/social_media_cleaned.csv")
+dim(wdbc)
+str(wdbc)
+```
+
+#Model Development
+```{r }
+features <- c("Instagram", "LinkedIn", "Snapchat", "Twitter", "Whatsapp", "Youtube", "OTT", "Reddit", "Trouble_sleep", "Mood", "Tired_morning")
+names(wdbc) <- c("ID", "Instagram", "LinkedIn", "Snapchat", "Twitter", "Whatsapp", "Youtube", "OTT", "Reddit", "Trouble_sleep", "Mood", "Tired_morning")
+```
+
+
+The process of developing a model brings clarity and context to individual variables, aiding in the comprehension of the dataset's content and significance. It readies the dataset for additional analysis or modeling by ensuring that each variable is named in a descriptive and intelligible manner. This stage is vital for guaranteeing that subsequent analyses or modeling tasks are performed on accurately labeled variables, thereby minimizing the risk of errors or misunderstandings.
+
+
+#Model Acceptance
+```{r }
+wdbc.data <- as.matrix(wdbc[,c(2:9)])
+row.names(wdbc.data) <- wdbc$ID
+wdbc_raw <- cbind(wdbc.data, as.numeric(as.factor(wdbc$Trouble_sleep))-1)
+colnames(wdbc_raw)[9] <- "TroubleInSleep"
+smp_size_raw <- floor(0.75 * nrow(wdbc_raw))
+train_ind_raw <- sample(nrow(wdbc_raw), size = smp_size_raw)
+train_raw.df <- as.data.frame(wdbc_raw[train_ind_raw, ])
+test_raw.df <- as.data.frame(wdbc_raw[-train_ind_raw, ])
+wdbc_raw.lda <- lda(formula = train_raw.df$TroubleInSleep ~ ., data = train_raw.df)
+wdbc_raw.lda
+summary(wdbc_raw.lda)
+print(wdbc_raw.lda)
+plot(wdbc_raw.lda)
+```
+
+
+Linear Discriminant Analysis (LDA) serves as a statistical method employed to reduce dimensionality and classify data. The initial probabilities of the two groups (0 and 1) reflect the proportions of each category within the training dataset. In this instance, 60% of the data pertains to the category without sleep issues (0), while 40% relates to the category experiencing trouble .
+
+#Model Accuracy
+```{r }
+wdbc_raw.lda.predict_train <- predict(wdbc_raw.lda, newdata = train_raw.df)
+y<-wdbc_raw.lda.predict_train$class
+wdbc_raw.lda.predict_train$x
+table(y,train_raw.df$TroubleInSleep)
+```
+
+
+```{r }
+wdbc_raw.lda.predict_test <- predict(wdbc_raw.lda, newdata = test_raw.df)
+y<-wdbc_raw.lda.predict_test$class
+wdbc_raw.lda.predict_test$x
+table(y,test_raw.df$TroubleInSleep)
+```
+
+The function table() is utilized to produce a confusion matrix, which presents the comparison between the actual and predicted classes within the training dataset. Rows correspond to the actual classes, while columns correspond to the predicted classes. Analysis of the confusion matrix reveals the following:
+
+- 8 instances categorized as having no trouble falling asleep (class 0) are accurately classified as 0, while 1 instance is erroneously classified as 1.
+- 5 instances identified as experiencing trouble falling asleep (class 1) are correctly classified as 1, with 1 instance being mistakenly classified as 0.
+
+The accuracy on the training set is calculated as (8+5)/(8+1+5+1) = 13/15 ≈ 0.867. Similarly, the accuracy on the test set is computed as (5+0)/(5+1+0+0) = 5/6 ≈ 0.833.
+
+
+#Prediction
+```{r }
+wdbc_raw.lda.predict.posteriors <- as.data.frame(wdbc_raw.lda.predict_test$posterior)
+
+pred <- prediction(wdbc_raw.lda.predict.posteriors[,2], test_raw.df$TroubleInSleep)
+roc.perf = performance(pred, measure = "tpr", x.measure = "fpr")
+auc.train <- performance(pred, measure = "auc")
+auc.train <- auc.train@y.values
+plot(roc.perf)
+abline(a=0, b= 1)
+text(x = .25, y = .65 ,paste("AUC = ", round(auc.train[[1]],3), sep = ""))
+```
+
+
+```{r }
+plot(wdbc_raw.lda, col = as.integer(train_raw.df$TroubleInSleep))
+plot(wdbc_raw.lda, dimen = 1, type = "b")
+```
+
+These probabilities express the model's assurance in assigning each observation to its respective class, with higher probabilities indicating a stronger confidence in the classification. In this scenario, the ROC curve is graphed, and the AUC value is computed and depicted on the plot. An AUC value of 1 signifies flawless classification, whereas an AUC of 0.5 implies random classification. This graphical representation offers valuable insights into LD1's efficacy in differentiating between individuals experiencing trouble falling asleep and those who are not, based on their social media usage patterns.
+
+#Residual Analysis
+```{r }
+m <- manova(cbind(wdbc$Instagram,wdbc$LinkedIn,wdbc$Snapchat,wdbc$Twitter)~wdbc$Trouble_sleep,data=wdbc)
+summary(m,test="Wilks")
+
+summary(m,test="Pillai")
+
+summary.aov(m)
+```
+The p-value of 0.09774 surpasses the frequently employed significance threshold of 0.05, suggesting that this effect lacks statistical significance. However, solely for Twitter, the p-value (0.009828) falls below 0.05, signifying a statistically significant impact of Trouble_sleep on Twitter utilization.

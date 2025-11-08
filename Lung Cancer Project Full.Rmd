@@ -1,0 +1,640 @@
+---
+title: "Lung Cancer Project Full"
+author: "hg420@scarletmail.rutgers.edu"
+date: "2024-04-29"
+output: html_document
+---
+
+
+# PCA
+```{r}
+library(readr)
+cancer <- read_csv("C:/Users/user/Desktop/Spring2024/MVA/Project/Hemanth/LUNGCANCER3.csv")
+str(cancer)
+attach(cancer)
+
+#Load packages
+library(lattice)
+library(ggplot2)
+library(ggridges)
+library(ggvis)
+library(ggthemes)
+library(cowplot)
+library(gapminder)
+library(gganimate)
+library(dplyr)
+library(tidyverse)
+library(grid)
+library(gridExtra)
+library(RColorBrewer)
+
+# Using prcomp to compute the principal components (eigenvalues and eigenvectors). With scale=TRUE, variable means are set to zero, and variances set to one
+cancer_pca <- prcomp(cancer[,-1],scale=TRUE)
+
+summary(cancer_pca)
+#* The standard deviation shows how much of the original data's variation is captured by each primary component. The first principal component (PC1) has the biggest standard deviation of 1.6925, indicating that it accounts for the most of the volatility in the original data. As we progress down the list of primary components, the standard deviation drops, indicating that each succeeding component accounts for less and less of the overall variation.
+
+#* The proportion of variance reveals how much of the original data's variance is explained by each major component. For example, the first principal component (PC1) explains 16.85% of the total variance in the data, while the second component (PC2) accounts for an additional 11.52%. As we progress down the list of principle components, the proportion of variation explained by each component decreases.
+
+#* The cumulative proportion represents the total amount of variance in the data explained by each principal component and all previous components. For example, the first principal component (PC1) accounts for 16.85% of the data's variation, whereas PC1 and PC2 combine to account for 28.37%. The cumulative proportion can help determine how many primary components to keep for future investigation.
+
+
+# sample scores stored in cancer_pca$x
+# singular values (square roots of eigenvalues) stored in cancer_pca$sdev
+# loadings (eigenvectors) are stored in cancer_pca$rotation
+# variable means stored in cancer_pca$center
+# variable standard deviations stored in cancer_pca$scale
+# A table containing eigenvalues and %'s accounted, follows
+# Eigenvalues are sdev^2
+(eigen_cancer <- cancer_pca$sdev^2)
+
+names(eigen_cancer) <- paste("PC",1:17,sep="")
+
+sumlambdas <- sum(eigen_cancer)
+
+propvar <- eigen_cancer/sumlambdas
+cumvar_cancer <- cumsum(propvar)
+
+
+
+matlambdas <- rbind(eigen_cancer,propvar,cumvar_cancer)
+rownames(matlambdas) <- c("Eigenvalues","Prop. variance","Cum. prop. variance")
+round(matlambdas,4)
+
+summary(cancer_pca)
+print(cancer_pca)
+
+# Identifying the scores by their survival status
+cancerp_pca <- cbind(data.frame(LUNG_CANCER),cancer_pca$x)
+# Means of scores for all the PC's classified by Survival status
+tabmeansPC <- aggregate(cancerp_pca[,2:15],by=list(LUNG_CANCER=cancer$LUNG_CANCER),mean)
+
+tabmeansPC <- tabmeansPC[rev(order(tabmeansPC$LUNG_CANCER)),]
+
+tabfmeans <- t(tabmeansPC[,-1])
+
+colnames(tabfmeans) <- t(as.vector(tabmeansPC[1]$LUNG_CANCER))
+
+# Standard deviations of scores for all the PC's classified by Survival status
+tabsdsPC <- aggregate(cancerp_pca[,2:15],by=list(LUNG_CANCER=cancer$LUNG_CANCER),sd)
+tabfsds <- t(tabsdsPC[,-1])
+colnames(tabfsds) <- t(as.vector(tabsdsPC[1]$LUNG_CANCER))
+tabfsds
+t.test(PC1~cancer$LUNG_CANCER,data=cancerp_pca)
+t.test(PC2~cancer$LUNG_CANCER,data=cancerp_pca)
+t.test(PC3~cancer$LUNG_CANCER,data=cancerp_pca)
+t.test(PC4~cancer$LUNG_CANCER,data=cancerp_pca)
+t.test(PC5~cancer$LUNG_CANCER,data=cancerp_pca)
+#The output reveals that the p-value is 0.07939, which is greater than the significance level of 0.05, implying that we cannot reject the null hypothesis of no change in means between the two groups at the 5% level for PC1. Similarly, we can do similar with other PCs. 
+
+plot(eigen_cancer, xlab = "Component number", ylab = "Component variance", type = "l", main = "Scree diagram")
+plot(log(eigen_cancer), xlab = "Component number",ylab = "log(Component variance)", type="l",main = "Log(eigenvalue) diagram")
+print(summary(cancer_pca))
+#The first three PCs (PC1, PC2, and PC3) together account for 38.5% of the variance in the data. The first seven PCs (PCs 1–7) explain 66.5% of the variance, whereas the first 14 PCs explain 94.1% of the variance. As a result, the top few PCs appear to capture the majority of the data's volatility. The report also shows that the standard deviation of each PC lowers as the PC index grows. This means that the amount of variation explained by each PC diminishes as the index rises. The proportion of variance and cumulative proportion for each PC follow a similar trend.
+
+plot(cancer_pca)
+
+#get the original value of the data based on PCA
+center <- cancer_pca$center
+scale <- cancer_pca$scale
+new_cancer <- as.matrix(cancer[,-1])
+
+drop(scale(new_cancer,center=center, scale=scale)%*%cancer_pca$rotation[,1])
+predict(cancer_pca)[,1]
+#The aboved two gives us the same thing. predict is a good function to know.
+cancer$LUNG_CANCER <- as.factor(cancer$LUNG_CANCER)
+out <- sapply(1:5, function(i){plot(cancer$LUNG_CANCER,cancer_pca$x[,i],xlab=paste("PC",i,sep=""),ylab="LUNG CANCER")})
+
+library(factoextra)
+library(FactoMineR)
+library(ggfortify)
+library(psych)
+library(corrplot)
+library(devtools)
+
+fviz_eig(cancer_pca, addlabels = TRUE)
+
+```
+
+
+#Cluster Analysis
+```{r}
+
+library(cluster)
+library(readr)
+library(factoextra)
+library(magrittr)
+library(NbClust)
+
+
+lung <- read.csv("C:/Users/user/Desktop/Spring2024/MVA/Project/Hemanth/LUNGCANCER3.csv")
+lung
+matstd.lung <- scale(lung[,2:18])
+# K-means, k=2, 3, 4, 5, 6
+# Centers (k's) are numbers thus, 10 random sets are chosen
+
+(kmeans2.lung <- kmeans(matstd.lung,2,nstart = 10))
+# Computing the percentage of variation accounted for. Two clusters
+perc.var.2 <- round(100*(1 - kmeans2.lung$betweenss/kmeans2.lung$totss),1)
+names(perc.var.2) <- "Perc. 2 clus"
+perc.var.2
+
+#Ans: The cluster-sum of squares is observed to be 87.7%.
+
+# Computing the percentage of variation accounted for. Three clusters
+(kmeans3.lung <- kmeans(matstd.lung,3,nstart = 10))
+perc.var.3 <- round(100*(1 - kmeans3.lung$betweenss/kmeans3.lung$totss),1)
+names(perc.var.3) <- "Perc. 3 clus"
+perc.var.3
+
+#Ans: The cluster-sum of squares is observed to be 80.5%
+
+# Computing the percentage of variation accounted for. Four clusters
+(kmeans4.lung <- kmeans(matstd.lung,4,nstart = 10))
+perc.var.4 <- round(100*(1 - kmeans4.lung$betweenss/kmeans4.lung$totss),1)
+names(perc.var.4) <- "Perc. 4 clus"
+perc.var.4
+
+#Ans: The cluster-sum of squares is observed to be 75.3
+
+# Computing the percentage of variation accounted for. Five clusters
+(kmeans5.lung <- kmeans(matstd.lung,5,nstart = 10))
+perc.var.5 <- round(100*(1 - kmeans5.lung$betweenss/kmeans5.lung$totss),1)
+names(perc.var.5) <- "Perc. 5 clus"
+perc.var.5
+(kmeans6.lung <- kmeans(matstd.lung,6,nstart = 10))
+
+#Ans: The cluster-sum of squares is observed to be 71.4%
+
+# Computing the percentage of variation accounted for. Six clusters
+perc.var.6 <- round(100*(1 - kmeans6.lung$betweenss/kmeans6.lung$totss),1)
+names(perc.var.6) <- "Perc. 6 clus"
+perc.var.6
+
+#Ans: The cluster-sum of squares is observed to be 68.1%
+
+attributes(perc.var.6)
+Variance_List <- c(perc.var.2,perc.var.3,perc.var.4,perc.var.5,perc.var.6)
+
+Variance_List
+plot(Variance_List)
+
+
+#Ans: The graph shows that having four clusters is ideal, as the slope appears to flatten out after that point.
+
+clus1 <- lung[kmeans4.lung$cluster == 1,]
+colnames(clus1) <- "Cluster 1"
+
+clus2 <- lung[kmeans4.lung$cluster == 2, ]
+colnames(clus2) <- "Cluster 2"
+
+clus3 <- lung[kmeans4.lung$cluster == 3, ]
+colnames(clus3) <- "Cluster 3"
+
+clus4 <- lung[kmeans4.lung$cluster == 4, ]
+colnames(clus4) <- "Cluster 4"
+
+#Ans: The code above generates subsets of the lung dataset according on the clusters allocated by the kmeans4.lung clustering algorithm. Here's a breakdown of every part.
+#clus1 <- lung[kmeans4.lung$cluster == 1,]: This line generates a subset of lung whose cluster assignment in kmeans4.lung is equal to 1. This subset is kept in clus 1.
+
+#colnames(clus1) <- "Cluster 1": This line renames the column in clus1 to "Cluster 1". This is useful in determining which cluster the data in clus1 belongs to.
+
+#Similarly, the next lines construct subsets clus2, clus3, and clus4 for clusters 2, 3, and 4, and rename their corresponding columns.
+
+list(clus1,clus2,clus3,clus4)
+
+
+new_data <- lung[, c("SMOKING", "YELLOW_FINGERS", "ANXIETY", "PEER_PRESSURE", "CHRONIC_DISEASE", "FATIGUE", "ALLERGY", "WHEEZING", "ALCOHOL_CONSUMING", "COUGHING", "SHORTNESS_OF_BREATH", "SWALLOWING_DIFFICULTY", "CHEST_PAIN", "WEIGHT", "HEIGHT_INCH")] %>% na.omit() %>% scale()
+
+fviz_nbclust(new_data, kmeans, method = "gap_stat")
+
+#Ans: The graph clearly shows that 6 would be the best number of clusters.
+
+set.seed(123)
+km.res <- kmeans(new_data, 3, nstart = 25)
+fviz_cluster(km.res, data = new_data,
+             ellipse.type = "convex",
+             palette = "jco",
+             ggtheme = theme_minimal())
+
+#Ans: Three clusters are produced. Clusters 1, 2, and 3 are slightly overlapped. Additionally, clusters 1 and 3 are less in size than cluster 2.
+
+lung_pca <- prcomp(lung[, c("SMOKING", "YELLOW_FINGERS", "ANXIETY", "PEER_PRESSURE", "CHRONIC_DISEASE", "FATIGUE", "ALLERGY", "WHEEZING", "ALCOHOL_CONSUMING", "COUGHING", "SHORTNESS_OF_BREATH", "SWALLOWING_DIFFICULTY", "CHEST_PAIN", "WEIGHT", "HEIGHT_INCH")])
+lung_pca
+summary(lung_pca)
+
+PC1 <- lung_pca$x[,1]
+PC2 <-lung_pca$x[,2]
+
+lung_pca_df <- as.data.frame(lung_pca$x)
+
+matstd.new_pca <- lung_pca_df
+
+res.nbclust <- matstd.new_pca %>% scale() %>% NbClust(distance = "euclidean", min.nc = 2, max.nc = 10, method = "complete", index ="all") 
+
+fviz_nbclust(matstd.new_pca, kmeans, method = "silhouette")
+
+#Ans: The optimal number of clusters would be two.
+
+set.seed(123)
+kmeans3.lung_pca <- kmeans(matstd.new_pca, 3, nstart = 25)
+
+kmeans3.lung_pca
+
+km.lung_pca <- kmeans(matstd.new_pca, 3, nstart =25)
+
+fviz_cluster(km.lung_pca, data = matstd.new_pca,
+             ellipse.type = "convex",
+             palette = "jco",
+             ggtheme = theme_minimal())
+
+#Ans: Three clusters are produced. As you can see, all three clusters are closely banded. As indicated in the previous observation, no clusters are slightly separated from one another, and the sizes of all three clusters are about comparable. 
+
+
+
+
+```
+
+
+
+#Factor Analysis
+```{r}
+
+library(psych)
+library(readr)
+data <- read_csv("C:/Users/user/Desktop/Spring2024/MVA/Project/Hemanth/LUNGCANCER3.csv")
+
+attach(data)
+data[1]
+fit.pc <- fa(data[-1], nfactors=3, rotate="varimax")
+fit.pc
+#Ans: The parallel analysis suggests that the number of factors should be 5. However, in the factor analysis (fit.pc), We chose to extract 3 factors.
+
+round(fit.pc$values, 3)
+fit.pc$loadings
+#Ans:  The output for the factor model: Standardized Loadings : It shows the correlation between each variable and each factor. For example, GENDER has a loading of -0.578 on Factor 1 (MR1), indicating a negative correlation.
+
+#Ans: SS Loadings: Sum of squared loadings for each factor, Proportion Var: Proportion of variance explained by each factor, Cumulative Var: Cumulative proportion of variance explained.
+
+#Ans: Show the columns that go into each factor: The loadings matrix (fit.pc$loadings) shows the correlation between each variable and each factor. Here are the columns that goes into each factor.
+
+# Communalities
+fit.pc$communality
+# Play with FA utilities
+
+fa.parallel(data[-1])
+#See factor recommendation
+fa.plot(fit.pc) 
+#See Correlations within Factors
+fa.diagram(fit.pc) 
+#Visualize the relationship
+vss(data[-1]) 
+#See Factor recommendations for a simple structure
+
+# Computing Correlation Matrix
+corrm.emp <- cor(data[-1])
+corrm.emp
+
+  plot(corrm.emp)
+data_pca <- prcomp(data[-1], scale=TRUE)
+summary(data_pca)
+plot(data_pca)
+#Ans: Initially Principal component analysis (PCA) is performed and visualized.
+
+# A table containing eigenvalues and %'s accounted, follows. Eigenvalues are the sdev^2
+(eigen_data <- round(data_pca$sdev^2,3))
+round(fit.pc$values, 3)
+names(eigen_data) <- paste("PC",1:17,sep="")
+eigen_data
+sumlambdas <- sum(eigen_data)
+sumlambdas
+propvar <- round(eigen_data/sumlambdas,2)
+propvar
+cumvar_data <- cumsum(propvar)
+cumvar_data
+matlambdas <- rbind(eigen_data,propvar,cumvar_data)
+matlambdas
+rownames(matlambdas) <- c("Eigenvalues","Prop. variance","Cum. prop. variance")
+rownames(matlambdas)
+eigvec.emp <- data_pca$rotation
+
+# Taking the first four PCs to generate linear combinations for all the variables with four factors
+pcafactors.emp <- eigvec.emp[,1:7]
+pcafactors.emp
+
+# Multiplying each column of the eigenvector’s matrix by the square-root of the corresponding eigenvalue in order to get the factor loadings
+unrot.fact.emp <- sweep(pcafactors.emp,MARGIN=2,data_pca$sdev[1:7],`*`)
+unrot.fact.emp
+
+# Computing communalities
+communalities.emp <- rowSums(unrot.fact.emp^2)
+communalities.emp
+
+# Performing the varimax rotation. The default in the varimax function is norm=TRUE thus, Kaiser normalization is carried out
+rot.fact.emp <- varimax(unrot.fact.emp)
+#View(unrot.fact.emp)
+rot.fact.emp
+#Ans: The output for the factor model: Standardized Loadings : It shows the correlation between each variable and each factor. For example, GENDER has a loading of 0.238 on Factor 1 (PC1), indicating a positive correlation.
+
+#Ans: SS Loadings: Sum of squared loadings for each factor, Proportion Var: Proportion of variance explained by each factor, Cumulative Var: Cumulative proportion of variance explained.
+
+# The print method of varimax omits loadings less than abs(0.1). In order to display all the loadings, it is necessary to ask explicitly the contents of the object $loadings
+fact.load.emp <- rot.fact.emp$loadings[1:17,1:7]
+
+# Computing the rotated factor scores for the 30 European Countries. Notice that signs are reversed for factors F2 (PC2), F3 (PC3) and F4 (PC4)
+scale.emp <- scale(data[-1])
+
+```
+
+
+
+
+#Multiple Regression
+```{r}
+
+library(GGally)
+library(readr)
+
+# Load the lung cancer dataset
+lung_cancer_data <- read_csv("C:/Users/user/Desktop/Spring2024/MVA/Project/Hemanth/LUNGCANCER3.csv")
+
+# Display the structure of the dataset
+str(lung_cancer_data)
+
+#Anwer: Loading the lung cancer dataset into R and displays its structure. The output shows that the dataset contains 309 observations and 18 variables. Each variable is identified as double (numeric), including the binary categorical variables encoded as numeric types (0 or 1).
+
+# Assume `LUNG_CANCER` is the response variable and all others are predictors.
+# Develop the full model with all predictors
+full_model <- lm(LUNG_CANCER ~ ., data = lung_cancer_data)
+
+# Summary of the full model
+summary(full_model)
+
+#Answer: Builds a linear regression model predicting LUNG_CANCER based on all other variables in the dataset.The distribution of residuals gives insight into the error variance, showing how the predicted values differ from the actual values. Display estimates of the model parameters (coefficients), their standard errors, t-values, and corresponding p-values. Coefficients with low p-values are statistically significant predictors of lung cancer in this model. Stars and symbols next to coefficients signify their significance levels, helping to quickly identify the most influential predictors.Includes R-squared and Adjusted R-squared values, indicating the proportion of variance in the dependent variable explained by the model. An F-statistic with a very low p-value (near zero) indicates that the model is statistically significant.
+
+# Developing a reduced model (Example: removing one predictor, HEIGHT_INCH)
+reduced_model <- lm(LUNG_CANCER ~ . - HEIGHT_INCH, data = lung_cancer_data)
+
+# Summary of the reduced model
+summary(reduced_model)
+
+# Comparing full model and reduced model to see if there is a significant difference
+anova(full_model, reduced_model)
+
+#Answer: This section compares a reduced model (excluding HEIGHT_INCH) with the full model. The summary again shows similar statistics, and the ANOVA comparison tests whether removing HEIGHT_INCH significantly worsens the model. The p-value associated with this test (from the ANOVA output) suggests that HEIGHT_INCH is not a crucial predictor, as excluding it does not significantly change the model performance.
+
+
+# Checking coefficients of the full model
+coefficients(full_model)
+
+# Displaying pair plots for variables in the dataset
+ggpairs(data = lung_cancer_data, title = "Relationships Among Lung Cancer Data Features")
+
+# Getting 95% confidence intervals for the model coefficients
+confint(full_model, level = 0.95)
+
+#Answer: Lists the coefficients of the full model and their 95% confidence intervals. Confidence intervals that do not cross zero suggest significant predictors. This information is crucial for interpreting the stability and reliability of each predictor within the model.
+
+# Getting fitted values from the model
+fitted(full_model)
+
+# Getting residuals from the model
+residuals(full_model)
+
+#Answer: Displays the fitted (predicted) values and residuals (differences between observed and predicted values) for each observation. Analyzing these can help identify patterns or anomalies in model predictions.
+
+# Conducting an ANOVA to check the significance of the model
+anova(full_model)
+
+# Getting the variance-covariance matrix of the model coefficients
+vcov(full_model)
+
+# Plotting diagnostic plots for the regression model
+par(mfrow=c(2,2))
+plot(full_model)
+
+#Answer:Produces diagnostic plots to check for assumptions such as linearity, homoscedasticity, independence, and normality of residuals. These plots are vital for verifying the validity of the model's assumptions.
+
+# Calculating and printing the R-squared value to evaluate model accuracy
+r_squared <- summary(full_model)$r.squared
+print(paste("R-squared of the model is:", r_squared))
+
+#Answer: Outputs the R-squared value, quantifying how well the model explains the variability in the response variable. A higher R-squared value indicates a better fit of the model to the data.
+
+
+```
+
+
+#Logistic Regression
+
+```{r}
+
+
+
+library(readr)
+library(MVA)
+library(HSAUR2)
+library(SciViews)
+library(scatterplot3d)
+library(car)
+library(lattice)
+library(GGally)
+library(ggplot2)
+library(ggridges)
+library(ggvis)
+library(ggthemes)
+library(cowplot)
+library(gapminder)
+library(gganimate)
+library(dplyr)
+library(tidyverse)
+library(grid)
+library(gridExtra)
+library(RColorBrewer)
+library(Hotelling)
+library(stats)
+library(biotools)
+library(factoextra)
+library(FactoMineR)
+library(ggfortify)
+library(psych)
+library(corrplot)
+library(devtools)
+library(cluster)
+library(magrittr)
+library(NbClust)
+library(MASS)
+library(gvlma)
+library(leaps)
+library(relaimpo)
+library(e1071)
+library(pROC)
+library(memisc)
+library(ROCR)
+library(klaR)
+library(caret)
+library(caTools)
+
+
+cancer <- read_csv("C:/Users/user/Desktop/Spring2024/MVA/Project/Hemanth/LUNGCANCER3.csv")
+str(cancer)
+attach(cancer)
+
+set.seed(123)
+split = sample.split(cancer$LUNG_CANCER, SplitRatio = 0.80)
+train_lc = subset(cancer, split == TRUE)
+test_lc = subset(cancer, split == FALSE)
+
+#Answer: The dataset is divided into training (80%) and testing (20%) subsets using a random seed for reproducibility. This step is crucial for training the model on one set of data and validating it on another.
+
+
+Xtrain_lc <- train_lc[,-1]
+Ytrain_lc <- train_lc[,1]
+
+Xtest_lc <- test_lc[,-1]
+x_lc <- cbind(Xtrain_lc,Ytrain_lc)
+logistic_lc <- glm(LUNG_CANCER ~ ., data = x_lc,family='binomial')
+summary(logistic_lc)
+
+#Answer:This step involves creating a logistic regression model using all predictors in the dataset (x_lc). The model is specified to use the binomial family, appropriate for binary outcomes like lung cancer presence (LUNG_CANCER being 0 or 1).
+#Answer: The summary(logistic_lc) command outputs the coefficients for each predictor, their standard errors, z-values, and the significance levels (p-values). This summary helps in understanding which factors are statistically significant predictors of lung cancer.
+
+
+#Residual Analysis: While explicit residual analysis code and output are not provided, it typically involves checking the residuals of the logistic regression model to ensure that they are randomly distributed around zero, indicating a good fit.
+
+
+set.seed(1234) # for reproducibility
+probabilities_lc <- predict(logistic_lc, newdata = Xtest_lc, type = "response")
+
+predicted_lc <- ifelse(probabilities_lc > 0.5, "Yes", "No")
+actual_lc <- ifelse(test_lc$LUNG_CANCER == 1, "Yes", "No")
+
+#Answer: The model is used to predict lung cancer presence in the test dataset (Xtest_lc). Predictions are probabilities due to the type = "response" parameter.These probabilities are converted to categorical outcomes ("Yes" or "No") using a threshold of 0.5. This step is crucial for creating actionable predictions from the model.
+
+# Confusion matrix
+conf_mat <- table(actual_lc, predicted_lc)
+conf_mat
+
+# Precision
+precision <- conf_mat[2, 2] / sum(conf_mat[, 2])
+precision
+
+# Recall
+recall <- conf_mat[2, 2] / sum(conf_mat[2, ])
+recall
+
+roc_lc <- roc(test_lc$LUNG_CANCER, probabilities_lc)
+auc_lc <- auc(roc_lc)
+auc_lc
+
+#Answer: A confusion matrix (conf_mat) is used to calculate precision and recall, two critical measures of model accuracy. Precision measures the accuracy of positive predictions, and recall measures the ability to detect all positive cases. The ROC curve is generated for the model, and the Area Under the Curve (AUC) is calculated (auc_lc). AUC is a comprehensive performance measure that evaluates the model's ability to classify the outcomes correctly across all possible threshold values.
+
+#  generating full multiple logistic regression 
+full_model <- glm(LUNG_CANCER ~ SMOKING + WHEEZING + COUGHING + ALCOHOL_CONSUMING, family = binomial(link = logit)) 
+summary(full_model)
+
+
+full_model1 <- glm(LUNG_CANCER ~ ANXIETY + PEER_PRESSURE, family = binomial(link = logit)) 
+summary(full_model)
+
+#Answer: A focused logistic regression model (full_model) is developed using a subset of predictors believed to be highly relevant based on previous findings.The output from summary(full_model) shows the model coefficients, providing insights into the effects of these specific factors on lung cancer risk. The significance codes next to the coefficients indicate their impact levels, helping decide if the model is acceptable based on empirical evidence.
+
+# exponentiate the confidence intervals around the log odds for each predictor variable to obtain the odds 
+exp(confint(full_model))
+
+
+ggroc(roc_lc, color = "blue", legacy.axes = TRUE) +
+  geom_abline(intercept = 0, slope = 1, linetype = "dashed") +
+  scale_x_continuous(labels = scales::percent_format()) +
+  scale_y_continuous(labels = scales::percent_format()) +
+  labs(x = "False Positive Rate", y = "True Positive Rate",
+       title = paste("ROC Curve (AUC = ", round(auc_lc, 2), ")")) +
+  annotate("text", x = 0.5, y = 0.5, label = paste0("AUC = ", round(auc_lc, 2)))
+  
+#Answer: This code block generates a ROC curve, which plots the True Positive Rate against the False Positive Rate at various threshold settings. The curve includes a dashed line at y=x, indicating the performance of a non-discriminatory classifier. The AUC value is annotated on the plot, providing a visual and numeric summary of the model's classification effectiveness.
+
+```
+
+
+
+#LDA
+```{r}
+
+
+
+library(MASS)
+library(ggplot2)
+library(dplyr)
+library(klaR)
+
+# Load the lung cancer dataset
+lung_cancer <- read.csv("C:/Users/user/Desktop/Spring2024/MVA/Project/Hemanth/LUNGCANCER3.csv")
+
+# Explore dataset structure
+print(head(lung_cancer))
+print(dim(lung_cancer))
+print(str(lung_cancer))
+
+# Prepare the data
+lung_cancer$data <- as.matrix(lung_cancer[,2:18])  # Exclude the 'LUNG_CANCER' target column
+row.names(lung_cancer$data) <- NULL
+lung_cancer$target <- as.numeric(lung_cancer$LUNG_CANCER) - 1  # Make the target binary (0 or 1)
+
+# Split data into training and test sets
+set.seed(123)  # For reproducibility
+smp_size <- floor(0.75 * nrow(lung_cancer$data))
+train_ind <- sample(seq_len(nrow(lung_cancer$data)), size = smp_size)
+train <- lung_cancer$data[train_ind, ]
+test <- lung_cancer$data[-train_ind, ]
+train_target <- lung_cancer$target[train_ind]
+test_target <- lung_cancer$target[-train_ind]
+
+# Perform LDA
+lung_cancer.lda <- lda(train_target ~ ., data = as.data.frame(train))
+pred <- predict(lung_cancer.lda, newdata = as.data.frame(test))
+
+# Ensure that pred$x exists
+if (!is.null(pred$x)) {
+  scores <- as.data.frame(pred$x)
+  print("Scores object created, column names are:")
+  print(colnames(scores))
+} else {
+  stop("No discriminant scores available, check your LDA model and data.")
+}
+
+# Plotting logic, ensure this only runs if scores is defined
+if (exists("scores")) {
+  if ("LD2" %in% colnames(scores)) {
+    ggplot(scores, aes(x = LD1, y = LD2)) +
+      geom_point(aes(color = as.factor(test_target))) +
+      labs(color = "Lung Cancer Status") +
+      ggtitle("LDA Projection of Test Data")
+  } else {
+    ggplot(scores, aes(x = LD1, y = jitter(rep(1, nrow(scores))))) +
+      geom_point(aes(color = as.factor(test_target))) +
+      labs(x = "LD1", y = "Jitter (Fixed Axis)") +
+      ggtitle("LDA Projection on LD1") +
+      theme(axis.title.y=element_blank())
+  }
+} else {
+  print("Scores object not available for plotting.")
+}
+
+
+#Answers
+#Model Development : In the initial stage of model development, the focus is on preparing the dataset and constructing the Linear Discriminant Analysis (LDA) model. Firstly, the lung cancer dataset is loaded, and its structure is examined to gain insights into the features and their types. Subsequently, the dataset undergoes preparation where predictors, excluding the target variable 'LUNG_CANCER,' are selected and converted into a matrix format, while the target variable is encoded as binary. This step is crucial for facilitating the input of data into the LDA model. Finally, the LDA model is fitted to the training data using the lda() function from the MASS package. This function identifies differences between groups to determine the optimal combination of predictors for effectively distinguishing them, forming the cornerstone of model development.
+
+#Model Acceptance: Accepting a model usually entails assessing it against predetermined effectiveness standards. In this process, the model is directly applied for predictions, and its acceptance can be deduced from performance metrics like accuracy. Additionally, examining the summary of the LDA model would offer insights into coefficients and explained variance, aiding in comprehending the model's ability to distinguish between classes, although this step is not explicitly performed in the script but is recommended.
+
+#Residual Analysis: Residual analysis in classification refers to examining the errors made by the model. This involves predicting outcomes with the model, comparing them to the actual data, and scrutinizing the discrepancies (residuals) to identify potential patterns overlooked by the model. This process is typically conducted using the predict() function in scripts, applying the model to test data to generate predictions for analysis.
+
+#Prediction: Forecasting entails utilizing the model to forecast outcomes on fresh data, as explicitly detailed in the script: Through the employment of the predict() function, forecasts are generated on the test dataset, with the script verifying the presence of discriminant scores (pred$x). Should these scores be present, they are employed for visualization purposes, aiding in the assessment of the model's efficacy in distinguishing between the two classes.
+
+#Model accuracy: serves as a direct measure of its efficacy, determined through a calculation process. By comparing the predicted outcomes with the actual labels from the test dataset, this procedure quantifies the model's performance, providing a clear and objective metric for evaluating its effectiveness.
+
+#Examining the confusion matrix offers valuable insights into error types like false positives and false negatives, crucial for interpreting clinical data. Similarly, employing cross-validation enhances the model evaluation's robustness by testing performance across various dataset subsets.
+
+```
+
+
+

@@ -1,0 +1,437 @@
+---
+title: "Social media full"
+author: "hg420@scarletmail.rutgers.edu"
+date: "2024-04-29"
+output: html_document
+---
+
+
+#Social media analysis (EDA, PCA, Cluster, EFA)
+
+```{r}
+
+
+library(stats)
+library(readr)
+library(stats)
+
+#PCA
+data_cleaned <- read.csv('C:/Users/user/Desktop/Spring2024/MVA/Social media/social_media_cleaned_final.csv')
+data_numeric <- data_cleaned[, -1]
+
+#Normalize the data (Scaling)
+data_scaled <- scale(data_numeric)
+
+#PCA
+pca_result <- prcomp(data_scaled, scale. = TRUE)
+
+#Summary of PCA
+summary(pca_result)
+
+#Percentage of variance accounted for by each principal component
+prop_var <- pca_result$sdev^2 / sum(pca_result$sdev^2)
+prop_var
+
+#Plot of the explained variance ratio
+plot(prop_var, type = 'b', xlab = "Principal Component", ylab = "Proportion of Variance Explained", main = "Scree Plot")
+
+#Biplot
+biplot(pca_result)
+
+peace <- which(data_cleaned$character == "peace")
+
+#Plot PCA outcomes
+plot(pca_result$x[, 1], pca_result$x[, 2], xlab = "PC1", ylab = "PC2", main = "PCA Analysis")
+
+#Noting 'Peace' position using a color or symbol.
+points(pca_result$x[peace, 1], pca_result$x[peace, 2], col = "green", pch = 19)
+
+#Adding legend
+legend("topright", legend = c("Others", "peace"), col = c("blue", "green"), pch = c(1, 19), title = "Groups")
+
+#CLUSTER
+
+#Number of clusters
+num_clusters <- 4
+
+#Perform k-means clustering on the scores obtained from principal components.
+kmeans_clusters <- kmeans(pca_result$x[, 1:2], centers = num_clusters)
+
+#Add cluster labels to the original dataset
+data_cleaned$cluster <- as.factor(kmeans_clusters$cluster)
+
+#Plotting the PCA results with cluster membership
+plot(pca_result$x[, 1:2], col = data_cleaned$cluster, pch = 19, xlab = "PC1", ylab = "PC2", main = "Cluster Analysis PCA")
+
+#Add cluster centers into the visualization.
+points(kmeans_clusters$centers[, 1:2], col = 1:num_clusters, pch = 8, cex = 2)
+
+#Adding legend
+legend("topright", legend = unique(data_cleaned$cluster), col = 1:num_clusters, pch = 19, title = "Cluster")
+
+peace_cluster <- kmeans_clusters$cluster[data_cleaned$character == "peace"]
+
+#Plot PCA results with cluster membership
+plot(pca_result$x[, 1], pca_result$x[, 2], col = ifelse(data_cleaned$cluster == peace_cluster, "green", "red"), pch = 19, xlab = "PC1", ylab = "PC2", main = "Cluster Analysis")
+
+#Adding cluster centers
+points(kmeans_clusters$centers[, 1], kmeans_clusters$centers[, 2], col = 1:num_clusters, pch = 8, cex = 2)
+
+#Adding legend
+legend("topright", legend = c("Others", "peace"), col = c("red", "green"), pch = 19)
+
+#Adding legend for cluster centers
+legend("bottomright", legend = paste("Cluster", 1:num_clusters), col = 1:num_clusters, pch = 8, cex = 1, title = "Cluster Centers")
+
+#FACTOR
+
+#Performin Factor Analysis
+factor_result <- factanal(data_scaled, factors = 3)
+
+#Displaying summary of Factor Analysis
+print(factor_result)
+
+#Extracting factor loadings
+factor_loadings <- factor_result$loadings
+
+#Plotting Factor Loadings
+barplot(abs(factor_loadings), beside = TRUE, col = "darkgreen", main = "Factor Loadings", xlab = "Variables", ylab = "Absolute Factor Loadings")
+legend("topright", legend = paste("Factor", 1:3), fill = "darkgreen")
+
+#Add cluster labels to the original dataset based on k-means clustering
+data_cleaned$cluster <- as.factor(kmeans_clusters$cluster)
+
+#Add factor scores to the original dataset
+data_cleaned$factor1 <- factor_result$scores[,1]
+data_cleaned$factor2 <- factor_result$scores[,2]
+data_cleaned$factor3 <- factor_result$scores[,3]
+
+#Plotting the PCA results with factor scores and cluster membership
+plot(pca_result$x[, 1:2], col = data_cleaned$cluster, pch = 19, xlab = "PC1", ylab = "PC2", main = "PCA - Factor Analysis and Cluster Analysis")
+points(factor_result$scores[, 1:2], col = "skyblue", pch = 4)
+legend("topright", legend = c("Cluster", "Factor"), col = c(1, "skyblue"), pch = c(19, 4), title = "Groups")
+
+#Adding legend for cluster
+legend("bottomright", legend = unique(data_cleaned$cluster), col = 1:num_clusters, pch = 19, title = "Cluster")
+
+
+#Answers:
+#Summarize what each of these models is telling you about yourself and the class? 
+#Ans: PCA simplified the complex social media data while retaining the significant differences. It identified significant patterns that reflect the largest changes in data. The main pattern explained 26.1% of these differences, while the next explained 19.1%, demonstrating that class members utilize social media in a variety of ways. This suggests that PCA identified significant trends in how the class uses various social media sites.
+
+#Cluster Analysis was done on the PCA scores, resulting in the data being classified into four separate clusters. This investigation sought to categorize class members based on similarities in their social media usage patterns. The depiction of these clusters demonstrated how class members are segmented depending on their primary component scores, revealing varied groups within the class defined by their distinct social media behavior.
+
+#Factor analysis was used to find underlying variables that explain the pattern of correlations identified in social media data. Three indicators were identified, indicating how different social media networks such as Instagram, LinkedIn, and Snapchat, load on these characteristics. This demonstrates various levels of social media activity among class participants, including professional networking, multimedia sharing, and messaging.
+
+#Provide a takeaway from the analysis?
+#The combined findings from PCA, Cluster Analysis, and Factor Analysis demonstrate the multidimensional character of social media involvement among class members. There are considerable differences in how people utilize different platforms, which can be classified into diverse patterns of behavior and linked to underlying variables. This study not only aids in understanding the common trends in social media usage, but also in identifying certain groups within the class for targeted studies or interventions based on social media activity.
+
+
+
+
+
+```
+
+
+#Multiple Regression
+```{r}
+
+library(factoextra)
+library(FactoMineR)
+library(psych)
+library(readr)
+library(GGally)
+library(ggplot2)
+
+social_media <- read_csv("C:/Users/user/Desktop/Spring2024/MVA/Social media/social_media_cleaned_new.csv")
+
+str(social_media)
+
+#Ans) This summary describes the dataset of 21 people detailing their social media interactions and various weekly activities like mood, productivity, and sleep habits. The dataset includes:
+#Social Media Usage: Records time spent on various platforms such as Instagram, LinkedIn, Snapchat, and Twitter.
+#Other Activities: Includes data on job interviews, networking through coffee chats, and learning activities quantified by items created.
+#Mood and Productivity: Contains a variable indicating if individuals felt productive, potentially linked to social media use and other factors.
+#Sleep Patterns: Features data on sleep issues like difficulty falling asleep and tiredness upon waking, possibly affected by daily activities and social media usage.
+
+social_media$`Trouble falling asleep_numeric` <- ifelse(social_media$`Trouble falling asleep` == "Yes", 1, 0)
+str(social_media)
+
+#Ans) This step creates a new numeric column, 'Trouble falling asleep_numeric', where 'Yes' is encoded as 1 and 'No' as 0, converting it to a numeric data type for analysis.
+
+fit <- lm(`Trouble falling asleep_numeric` ~ Instagram + LinkedIn + SnapChat + Twitter + `Whatsapp/Wechat` + youtube + OTT + Reddit, data = social_media)
+summary(fit)
+
+#Ans) The model summary provides key insights:
+#Residuals: Describes the variation in the dependent variable not explained by the model.
+#Coefficients: Provides the estimated impact of each social media platform on sleep trouble, showing the change in probability of sleep trouble per unit increase in usage time.
+#Statistical Significance: Each predictor's significance is indicated by its p-value, with lower values suggesting stronger evidence against the null hypothesis of no effect.
+#Model Fit: Indicated by R-squared values, showing the proportion of variance explained by the model, and the F-statistic for testing the model's overall significance.
+
+fit2 <- lm(`Trouble falling asleep_numeric` ~ Instagram + LinkedIn + SnapChat + `Whatsapp/Wechat` + youtube + OTT + Reddit, data = social_media)
+summary(fit2)
+#Ans) Comparing two model summaries, the exclusion of Twitter (due to its high p-value) suggests no loss in explanatory power, supporting the decision to use the reduced model without Twitter.
+
+coefficients(fit)
+#Ans) These are the estimated effects of each social media platform on the probability of having trouble falling asleep, adjusted for the presence of other variables in the model.
+
+ggpairs(data = social_media, title = "Social Media Usage", cardinality_threshold = 30)
+#Ans) This plot matrix shows scatter plots for pairs of variables, indicating the absence of linear relationships among them.
+
+confint(fit,level=0.95)
+#Ans) Provides the 95% confidence intervals for each model coefficient, defining the range within which the true effects are expected to fall with 95% certainty.
+
+fitted(fit)
+#Ans) Lists the predicted values for 'Trouble falling asleep_numeric' based on the model, showing how well the model predicts each observation.
+
+residuals(fit)
+#Ans) Lists the residuals for each observation, highlighting the difference between observed and predicted values, which helps assess model fit.
+
+anova(fit)
+#Ans) The ANOVA table quantifies how much variance each predictor explains and the overall model effectiveness, with the F-statistic testing if the overall model is significantly better than an intercept-only model.
+
+vcov(fit)
+#Ans) This matrix shows the variances and covariances between pairs of model coefficients, useful for understanding the precision of the estimates and their interdependencies.
+
+plot(fit)
+#Ans) Diagnostic plots assess model assumptions and fit, showing potential issues with residuals, influence points, and normality.
+
+r_squared <- summary(fit)$r.squared
+r_squared
+#Ans) Indicates the proportion of variance in the dependent variable explained by the model, here quantified as approximately 49.5%, suggesting a moderate fit.
+
+
+social_media_numeric <- social_media[, c('Instagram', 'LinkedIn', 'SnapChat', 'Twitter', 'Whatsapp/Wechat', 'youtube', 'OTT', 'Reddit', 'How many job interview calls received in this week.?', 'How much networking done with coffee chats?', 'How many learning done in terms of items created?')]
+
+social_media_pca <- prcomp(social_media_numeric,scale=TRUE)
+social_media_pca
+
+summary(social_media_pca)
+#Ans) The summary of the principal component analysis (PCA) shows the importance of each component:
+#Standard deviation: This indicates the spread of the data along each principal component. Higher values indicate that the component explains more variability in the data.
+#Proportion of Variance: This shows the proportion of the total variance in the data explained by each principal component. Higher values indicate that the component captures more information.
+#Cumulative Proportion: This is the cumulative sum of the proportion of variance explained. It indicates how much of the total variance is explained by the first n components.
+
+
+fviz_eig(social_media_pca, addlabels = TRUE)
+#Ans) The graph shows that the sum of first 4 PCs is 69.7%. Hence first 4 PCs should be considered
+
+PC1 <- social_media_pca$x[, 1]
+PC2 <- social_media_pca$x[, 2]
+PC3 <- social_media_pca$x[, 3]
+PC4 <- social_media_pca$x[, 4]
+
+pc_new <- data.frame(PC1, PC2, PC3, PC4)
+
+pc_new$`Trouble falling asleep_numeric` <- social_media$`Trouble falling asleep_numeric`
+pc_new
+
+fit_new <- lm(`Trouble falling asleep_numeric` ~ PC1 + PC2 + PC3 + PC4, data=pc_new)
+summary(fit_new)
+#Ans) Here's a summary of the model:
+#The intercept term has a coefficient of 0.3333 with a p-value of 0.00837, which is statistically significant.cNone of the principal components (PC1, PC2, PC3, PC4) have coefficients that are statistically significant (p-values are all greater than 0.05). The R-squared value is 0.1149, indicating that the model explains only a small portion of the variance in the "Trouble falling asleep_numeric" variable. Overall, based on this model, the principal components do not appear to be strong predictors of the "Trouble falling asleep_numeric" variable.
+
+fa.parallel(social_media_numeric) 
+
+fit.pc <- principal(social_media_numeric, nfactors=3, rotate="varimax")
+
+round(fit.pc$values, 3)
+fit.pc$loadings
+#Ans) The loadings represent the correlation between each variable and the underlying factor. A higher absolute value of the loading indicates a stronger relationship between the variable and the factor. Variables with loadings close to 1 or -1 are strongly related to the factor. Variables with loadings close to 0 are weakly related to the factor and may not contribute much to it. Loadings that are similar in magnitude across multiple factors indicate that the variable is not clearly associated with any single factor. The SS loadings, Proportion Var, and Cumulative Var provide information about the amount of variance in the data explained by each component and cumulatively by all components.
+
+loadings <- fit.pc$scores[, c("RC1", "RC2", "RC3")]
+loadings_data <- as.data.frame(loadings)
+loadings_data <- round(loadings_data, 3)
+
+loadings_data$`Trouble falling asleep_numeric` <- social_media$`Trouble falling asleep_numeric`
+
+fit_new_1 <- lm(`Trouble falling asleep_numeric`~RC1+RC2+RC3, data=loadings_data)
+summary(fit_new_1)
+
+#Ans) The regression results indicate that none of the regression coefficients for the factors (RC1, RC2, RC3) are statistically significant at conventional levels (p > 0.05). The overall model also does not seem to explain much of the variation in the Trouble falling asleep_numeric variable, as indicated by the low R-squared value and the non-significant F-statistic. This suggests that the factors derived may not be good predictors of the Trouble falling asleep_numeric variable.
+
+```
+
+
+#Logistic Regression
+
+
+```{r}
+
+
+library(factoextra)
+library(FactoMineR)
+library(psych)
+library(ggplot2)
+library(cowplot)
+library(caret)
+library(e1071)
+library(pROC)
+library(readr)
+
+social_media <- read_csv("C:/Users/user/Desktop/Spring2024/MVA/Social media/social_media_cleaned_new.csv")
+
+str(social_media)
+
+#Ans)A summary of responses from 21 individuals regarding their social media usage and various aspects of their week, such as mood, productivity, and sleep patterns. 
+#Social Media Usage: The data includes columns for different social media platforms (e.g., Instagram, LinkedIn, Snapchat, Twitter, etc.) and the average time spent on each platform by the 21 individuals.
+#Other Activities: The data also includes information about other activities, such as job interview calls received, networking done through coffee chats, and learning activities in terms of items created.
+#Mood and Productivity: There is a column indicating whether individuals felt productive during the week, which could be correlated with their social media usage and other activities.
+#Sleep Patterns: The data includes columns related to sleep, such as tiredness upon waking up and trouble falling asleep, both of which could be influenced by social media usage and daily activities.
+
+social_media$`Trouble falling asleep_numeric` <- ifelse(social_media$`Trouble falling asleep` == "Yes", 1, 0)
+str(social_media)
+#Ans) A new column Trouble falling asleep_numeric is created where the values are 'num' data type
+
+social_media$`Trouble falling asleep` <- ifelse(test = social_media$`Trouble falling asleep` == "Yes", yes = "Yes", no = "No")
+ social_media$`Trouble falling asleep` <- as.factor(social_media$`Trouble falling asleep`)
+str(social_media)
+#) The column Trouble falling asleep is now a factor with 2 levels
+
+logistic_simple <- glm(`Trouble falling asleep` ~ ., data = social_media, family = "binomial")
+summary(logistic_simple)
+
+#Ans) There are many predictor variables with very small estimates and large standard errors, which could indicate collinearity.The pr value is 1 in all columns, suggesting a weak link between the predictor and outcome variables.
+
+new_data <- data.frame(probability.of.Trouble_falling_asleep=logistic_simple$fitted.values,Trouble_falling_asleep =social_media$`Trouble falling asleep`)
+new_data <- new_data[order(new_data$probability.of.Trouble_falling_asleep, decreasing=FALSE),]
+new_data$rank <- 1:nrow(new_data)
+
+ggplot(data=new_data, aes(x=rank, y=probability.of.Trouble_falling_asleep)) +
+geom_point(aes(color=Trouble_falling_asleep), alpha=1, shape=4, stroke=2) +
+xlab("Index") +
+ylab("Predicted probability of Trouble_falling_asleep")
+
+#Ans) A scatter plot of probability.of.Trouble_falling_asleep against rank is where each point is colored based on the Trouble_falling_asleep variable.We can determine that the logistic regression assumptions are satisfied if there is no overlap.
+
+data_new <- predict(logistic_simple,newdata=social_media,type="response" )
+data_new
+
+#Ans) We predict the response variable  for data stored in the social media dataset. The predicted probabilities of each level of the response variable for each observation in the social media dataset is calculated.
+
+data_2 <- as.factor(ifelse(test=as.numeric(data_new>0.5) == "Yes", yes="Yes", no="No"))
+data_2 <- factor(data_2, levels = levels(social_media$`Trouble falling asleep`))
+
+confusionMatrix(data_2, social_media$`Trouble falling asleep`)
+#Ans) The confusion matrix and statistics for predicting "Trouble falling asleep" are as follows:
+#Accuracy: 0.6667
+#95% CI: (0.4303, 0.8541)
+#No Information Rate: 0.6667
+#Kappa: 0
+#Sensitivity: 1.0000
+#Specificity: 0.0000
+#Pos Pred Value: 0.6667
+#Prevalence: 0.6667
+#Detection Rate: 0.6667
+#Detection Prevalence: 1.0000
+#Balanced Accuracy: 0.5000
+#This suggests that the model has a sensitivity of 1.0000 (all actual positive cases are correctly identified), but a specificity of 0.0000 (no actual negative cases are correctly identified), resulting in an overall accuracy of 0.6667. The Kappa statistic is 0, indicating no agreement between the model and the actual outcomes beyond that expected by chance.
+
+
+```
+
+
+#LDA
+
+```{r}
+
+
+library(MASS)
+library(ggplot2)
+library(memisc)
+library(ROCR)
+library(dplyr)
+library(klaR)
+
+wdbc <- read.csv("C:/Users/user/Desktop/Spring2024/MVA/Social media/social_media_cleaned.csv")
+dim(wdbc)
+str(wdbc)
+
+
+#Model Development
+
+features <- c("Instagram", "LinkedIn", "Snapchat", "Twitter", "Whatsapp", "Youtube", "OTT", "Reddit", "Trouble_sleep", "Mood", "Tired_morning")
+names(wdbc) <- c("ID", "Instagram", "LinkedIn", "Snapchat", "Twitter", "Whatsapp", "Youtube", "OTT", "Reddit", "Trouble_sleep", "Mood", "Tired_morning")
+
+
+
+#The process of developing a model brings clarity and context to individual variables, aiding in the comprehension of the dataset's content and significance. It readies the dataset for additional analysis or modeling by ensuring that each variable is named in a descriptive and intelligible manner. This stage is vital for guaranteeing that subsequent analyses or modeling tasks are performed on accurately labeled variables, thereby minimizing the risk of errors or misunderstandings.
+
+
+#Model Acceptance
+
+wdbc.data <- as.matrix(wdbc[,c(2:9)])
+row.names(wdbc.data) <- wdbc$ID
+wdbc_raw <- cbind(wdbc.data, as.numeric(as.factor(wdbc$Trouble_sleep))-1)
+colnames(wdbc_raw)[9] <- "TroubleInSleep"
+smp_size_raw <- floor(0.75 * nrow(wdbc_raw))
+train_ind_raw <- sample(nrow(wdbc_raw), size = smp_size_raw)
+train_raw.df <- as.data.frame(wdbc_raw[train_ind_raw, ])
+test_raw.df <- as.data.frame(wdbc_raw[-train_ind_raw, ])
+wdbc_raw.lda <- lda(formula = train_raw.df$TroubleInSleep ~ ., data = train_raw.df)
+wdbc_raw.lda
+summary(wdbc_raw.lda)
+print(wdbc_raw.lda)
+plot(wdbc_raw.lda)
+
+
+
+#Linear Discriminant Analysis (LDA) serves as a statistical method employed to reduce dimensionality and classify data. The initial probabilities of the two groups (0 and 1) reflect the proportions of each category within the training dataset. In this instance, 60% of the data pertains to the category without sleep issues (0), while 40% relates to the category experiencing trouble .
+
+#Model Accuracy
+
+wdbc_raw.lda.predict_train <- predict(wdbc_raw.lda, newdata = train_raw.df)
+y<-wdbc_raw.lda.predict_train$class
+wdbc_raw.lda.predict_train$x
+table(y,train_raw.df$TroubleInSleep)
+
+
+
+
+wdbc_raw.lda.predict_test <- predict(wdbc_raw.lda, newdata = test_raw.df)
+y<-wdbc_raw.lda.predict_test$class
+wdbc_raw.lda.predict_test$x
+table(y,test_raw.df$TroubleInSleep)
+
+
+#The function table() is utilized to produce a confusion matrix, which presents the comparison between the actual and predicted classes within the training dataset. Rows correspond to the actual classes, while columns correspond to the predicted classes. Analysis of the confusion matrix reveals the following:
+
+#- 8 instances categorized as having no trouble falling asleep (class 0) are accurately classified as 0, while 1 instance is erroneously classified as 1.
+#- 5 instances identified as experiencing trouble falling asleep (class 1) are correctly classified as 1, with 1 instance being mistakenly classified as 0.
+
+#The accuracy on the training set is calculated as (8+5)/(8+1+5+1) = 13/15 ≈ 0.867. Similarly, the accuracy on the test set is computed as (5+0)/(5+1+0+0) = 5/6 ≈ 0.833.
+
+
+#Prediction
+
+wdbc_raw.lda.predict.posteriors <- as.data.frame(wdbc_raw.lda.predict_test$posterior)
+
+pred <- prediction(wdbc_raw.lda.predict.posteriors[,2], test_raw.df$TroubleInSleep)
+roc.perf = performance(pred, measure = "tpr", x.measure = "fpr")
+auc.train <- performance(pred, measure = "auc")
+auc.train <- auc.train@y.values
+plot(roc.perf)
+abline(a=0, b= 1)
+text(x = .25, y = .65 ,paste("AUC = ", round(auc.train[[1]],3), sep = ""))
+
+
+
+
+plot(wdbc_raw.lda, col = as.integer(train_raw.df$TroubleInSleep))
+plot(wdbc_raw.lda, dimen = 1, type = "b")
+
+
+#These probabilities express the model's assurance in assigning each observation to its respective class, with higher probabilities indicating a stronger confidence in the classification. In this scenario, the ROC curve is graphed, and the AUC value is computed and depicted on the plot. An AUC value of 1 signifies flawless classification, whereas an AUC of 0.5 implies random classification. This graphical representation offers valuable insights into LD1's efficacy in differentiating between individuals experiencing trouble falling asleep and those who are not, based on their social media usage patterns.
+
+#Residual Analysis
+
+m <- manova(cbind(wdbc$Instagram,wdbc$LinkedIn,wdbc$Snapchat,wdbc$Twitter)~wdbc$Trouble_sleep,data=wdbc)
+summary(m,test="Wilks")
+
+summary(m,test="Pillai")
+
+summary.aov(m)
+
+#The p-value of 0.09774 surpasses the frequently employed significance threshold of 0.05, suggesting that this effect lacks statistical significance. However, solely for Twitter, the p-value (0.009828) falls below 0.05, signifying a statistically significant impact of Trouble_sleep on Twitter utilization.
+```
+
+
